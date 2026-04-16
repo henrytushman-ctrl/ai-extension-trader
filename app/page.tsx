@@ -1,65 +1,134 @@
-import Image from "next/image";
+import Link from "next/link";
+import { ArrowRight, BarChart3, BrainCircuit, ShieldCheck, Zap } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
 
-export default function Home() {
+export default function LandingPage() {
   return (
-    <div className="flex flex-col flex-1 items-center justify-center bg-zinc-50 font-sans dark:bg-black">
-      <main className="flex flex-1 w-full max-w-3xl flex-col items-center justify-between py-32 px-16 bg-white dark:bg-black sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={100}
-          height={20}
-          priority
-        />
-        <div className="flex flex-col items-center gap-6 text-center sm:items-start sm:text-left">
-          <h1 className="max-w-xs text-3xl font-semibold leading-10 tracking-tight text-black dark:text-zinc-50">
-            To get started, edit the page.tsx file.
-          </h1>
-          <p className="max-w-md text-lg leading-8 text-zinc-600 dark:text-zinc-400">
-            Looking for a starting point or more instructions? Head over to{" "}
-            <a
-              href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Templates
-            </a>{" "}
-            or the{" "}
-            <a
-              href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Learning
-            </a>{" "}
-            center.
+    <main className="flex flex-col min-h-screen">
+      {/* Nav */}
+      <nav className="border-b border-border px-6 py-4 flex items-center justify-between">
+        <div className="flex items-center gap-2">
+          <BrainCircuit className="w-5 h-5 text-primary" />
+          <span className="font-semibold text-sm tracking-tight">AI Extension Trader</span>
+        </div>
+        <div className="flex items-center gap-4">
+          <Link href="/strategies" className="text-sm text-muted-foreground hover:text-foreground transition-colors">
+            Strategies
+          </Link>
+          <Link href="/dashboard">
+            <Button size="sm">Connect Alpaca</Button>
+          </Link>
+        </div>
+      </nav>
+
+      {/* Hero */}
+      <section className="flex-1 flex flex-col items-center justify-center text-center px-6 py-24 max-w-3xl mx-auto space-y-6">
+        <Badge variant="secondary" className="text-xs font-mono">
+          Backed by 726 live paper-trading trials · 52-week experiment
+        </Badge>
+
+        <h1 className="text-4xl md:text-5xl font-bold tracking-tight leading-tight">
+          AI trading strategies,{" "}
+          <span className="text-primary">empirically tested.</span>
+          <br />
+          Deploy to your account.
+        </h1>
+
+        <p className="text-muted-foreground text-lg max-w-xl leading-relaxed">
+          We run 726 AI trading agents simultaneously across value, momentum, growth, and more strategies.
+          Browse live performance data, pick the strategy you believe in, and connect it to your Alpaca brokerage account.
+        </p>
+
+        <div className="flex items-center gap-3 pt-2">
+          <Link href="/strategies">
+            <Button size="lg" className="gap-2">
+              Browse strategies <ArrowRight className="w-4 h-4" />
+            </Button>
+          </Link>
+          <Link href="/how-it-works">
+            <Button size="lg" variant="outline">
+              How it works
+            </Button>
+          </Link>
+        </div>
+
+        <p className="text-xs text-muted-foreground pt-4 max-w-sm">
+          Past paper trading performance does not guarantee live results. This is not investment advice.
+        </p>
+      </section>
+
+      {/* How it works */}
+      <section className="border-t border-border px-6 py-20 max-w-4xl mx-auto w-full">
+        <h2 className="text-xl font-semibold text-center mb-12">How it works</h2>
+        <div className="grid md:grid-cols-3 gap-8">
+          {[
+            {
+              icon: <BarChart3 className="w-5 h-5 text-primary" />,
+              step: "01",
+              title: "Browse live results",
+              body: "See real performance data from 726 AI paper-trading trials running since April 2026. Ranked by return, alpha, and strategy.",
+            },
+            {
+              icon: <Zap className="w-5 h-5 text-primary" />,
+              step: "02",
+              title: "Pick a strategy",
+              body: "Choose a strategy and AI model combination. Connect your Alpaca account with one OAuth click — we never hold your funds.",
+            },
+            {
+              icon: <ShieldCheck className="w-5 h-5 text-primary" />,
+              step: "03",
+              title: "AI trades for you",
+              body: "Every Friday at 4:30pm ET, the same AI agent that runs in our experiment executes trades in your real account. Pause anytime.",
+            },
+          ].map(({ icon, step, title, body }) => (
+            <div key={step} className="space-y-3">
+              <div className="flex items-center gap-3">
+                <span className="text-xs font-mono text-muted-foreground/50">{step}</span>
+                {icon}
+              </div>
+              <h3 className="font-semibold text-sm">{title}</h3>
+              <p className="text-sm text-muted-foreground leading-relaxed">{body}</p>
+            </div>
+          ))}
+        </div>
+      </section>
+
+      {/* Experiment callout */}
+      <section className="border-t border-border px-6 py-16">
+        <div className="max-w-2xl mx-auto text-center space-y-4">
+          <h2 className="text-lg font-semibold">Built on a real experiment</h2>
+          <p className="text-sm text-muted-foreground leading-relaxed">
+            Unlike black-box robo-advisors, every strategy here is publicly tested. 726 AI agents have been trading paper
+            money since April 13, 2026 across 7 strategies and 3 AI models (Claude Haiku, GPT-4o-mini, Gemini Flash 2).
+            You see exactly what works before deploying real capital.
           </p>
+          <div className="flex items-center justify-center gap-6 pt-2 text-xs text-muted-foreground">
+            <span>726 live trials</span>
+            <span>·</span>
+            <span>7 strategies</span>
+            <span>·</span>
+            <span>3 AI models</span>
+            <span>·</span>
+            <span>52-week experiment</span>
+          </div>
+          <div className="pt-4">
+            <Link
+              href="https://ai-trader-opal.vercel.app"
+              target="_blank"
+              className="text-xs text-muted-foreground hover:text-foreground underline underline-offset-4 transition-colors"
+            >
+              View the full experiment →
+            </Link>
+          </div>
         </div>
-        <div className="flex flex-col gap-4 text-base font-medium sm:flex-row">
-          <a
-            className="flex h-12 w-full items-center justify-center gap-2 rounded-full bg-foreground px-5 text-background transition-colors hover:bg-[#383838] dark:hover:bg-[#ccc] md:w-[158px]"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={16}
-              height={16}
-            />
-            Deploy Now
-          </a>
-          <a
-            className="flex h-12 w-full items-center justify-center rounded-full border border-solid border-black/[.08] px-5 transition-colors hover:border-transparent hover:bg-black/[.04] dark:border-white/[.145] dark:hover:bg-[#1a1a1a] md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Documentation
-          </a>
-        </div>
-      </main>
-    </div>
+      </section>
+
+      {/* Footer */}
+      <footer className="border-t border-border px-6 py-6 flex items-center justify-between text-xs text-muted-foreground">
+        <span>AI Extension Trader</span>
+        <span>Not financial advice. Paper trading results do not guarantee live performance.</span>
+      </footer>
+    </main>
   );
 }
