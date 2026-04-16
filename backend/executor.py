@@ -3,7 +3,7 @@ Execution engine: runs one weekly AI trading step for a subscribed user.
 Mirrors the logic in AI Trader's live_trader.py, but executes against Alpaca API
 instead of a paper DB.
 """
-from datetime import date
+from datetime import date, datetime
 import yfinance as yf
 from sqlalchemy.orm import Session
 
@@ -126,7 +126,7 @@ def run_user_step(user: User, sub: Subscription, db: Session) -> dict:
         db.add(UserTrade(
             user_id=user.id,
             subscription_id=sub.id,
-            executed_at=__import__("datetime").datetime.utcnow(),
+            executed_at=datetime.utcnow(),
             ticker=ticker,
             action=action,
             shares=shares,

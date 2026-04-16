@@ -6,78 +6,81 @@ import { BrainCircuit, CheckCircle2, Circle, ExternalLink, PauseCircle, PlayCirc
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { getStrategyMeta, shortModel } from "@/lib/api";
+import { getAlpacaAuthorizeUrl, getStrategyMeta, getUserAccount, getSubscriptions, createSubscription, pauseSubscription, shortModel } from "@/lib/api";
 import { Suspense } from "react";
 
-// Simulated local state — in production this would be persisted via the backend
-type Subscription = {
-  strategyKey: string;
+type BackendSub = {
+  id: number;
+  strategy: string;
   model: string;
   active: boolean;
-  connectedAt: string;
+  created_at: string;
 };
 
 function DashboardContent() {
   const searchParams = useSearchParams();
-  const [connected, setConnected] = useState(false);
+  const [userId, setUserId] = useState<number | null>(null);
   const [alpacaEnv, setAlpacaEnv] = useState<"paper" | "live">("paper");
-  const [subscription, setSubscription] = useState<Subscription | null>(null);
+  const [account, setAccount] = useState<Record<string, string> | null>(null);
+  const [subscription, setSubscription] = useState<BackendSub | null>(null);
   const [connecting, setConnecting] = useState(false);
+  const [deploying, setDeploying] = useState(false);
 
   const strategyParam = searchParams.get("strategy");
 
-  // In production: check if user has an active OAuth session
-  // For now, simulate with localStorage
   useEffect(() => {
-    const stored = localStorage.getItem("aiet_connected");
-    const storedSub = localStorage.getItem("aiet_subscription");
-    if (stored) {
-      setConnected(true);
-      setAlpacaEnv(stored as "paper" | "live");
-    }
-    if (storedSub) {
-      setSubscription(JSON.parse(storedSub));
-    }
+    const storedUserId = localStorage.getItem("aiet_user_id");
+    const storedEnv = localStorage.getItem("aiet_env") as "paper" | "live" | null;
+    if (!storedUserId) return;
+    const uid = Number(storedUserId);
+    setUserId(uid);
+    if (storedEnv) setAlpacaEnv(storedEnv);
+    // Fetch account + subscriptions from backend
+    getUserAccount(uid).then(acct => { if (acct) setAccount(acct); });
+    getSubscriptions(uid).then((subs: BackendSub[]) => {
+      const active = subs.find(s => s.active) ?? subs[0] ?? null;
+      setSubscription(active);
+    });
   }, []);
 
-  function handleConnect(env: "paper" | "live") {
+  async function handleConnect(env: "paper" | "live") {
     setConnecting(true);
-    // In production: redirect to Alpaca OAuth
-    // https://app.alpaca.markets/oauth/authorize?...
-    setTimeout(() => {
-      setConnected(true);
-      setAlpacaEnv(env);
-      localStorage.setItem("aiet_connected", env);
+    localStorage.setItem("aiet_pending_env", env);
+    try {
+      const url = await getAlpacaAuthorizeUrl(env);
+      window.location.href = url;
+    } catch {
       setConnecting(false);
-    }, 1200);
+    }
   }
 
   function handleDisconnect() {
-    setConnected(false);
+    localStorage.removeItem("aiet_user_id");
+    localStorage.removeItem("aiet_env");
+    setUserId(null);
+    setAccount(null);
     setSubscription(null);
-    localStorage.removeItem("aiet_connected");
-    localStorage.removeItem("aiet_subscription");
   }
 
-  function handleDeploy(strategyKey: string) {
-    const sub: Subscription = {
-      strategyKey,
-      model: "claude-haiku-4-5-20251001",
-      active: true,
-      connectedAt: new Date().toISOString(),
-    };
-    setSubscription(sub);
-    localStorage.setItem("aiet_subscription", JSON.stringify(sub));
+  async function handleDeploy(strategyKey: string) {
+    if (!userId) return;
+    setDeploying(true);
+    try {
+      const sub = await createSubscription(userId, strategyKey, "claude-haiku-4-5-20251001");
+      setSubscription(sub);
+    } finally {
+      setDeploying(false);
+    }
   }
 
-  function handleToggle() {
-    if (!subscription) return;
-    const updated = { ...subscription, active: !subscription.active };
+  async function handleToggle() {
+    if (!subscription || !userId) return;
+    const updated = await pauseSubscription(userId, subscription.id, !subscription.active);
     setSubscription(updated);
-    localStorage.setItem("aiet_subscription", JSON.stringify(updated));
   }
 
-  const meta = subscription ? getStrategyMeta(subscription.strategyKey) : null;
+  const connected = !!userId && !!account;
+  const meta = subscription ? getStrategyMeta(subscription.strategy) : null;
 
   return (
     <div className="p-6 max-w-2xl mx-auto w-full space-y-6">
@@ -109,14 +112,14 @@ function DashboardContent() {
                   variant="outline"
                   className="flex-1"
                 >
-                  {connecting ? "Connecting…" : "Connect Paper Account"}
+                  {connecting ? "Redirecting to Alpaca…" : "Connect Paper Account"}
                 </Button>
                 <Button
                   onClick={() => handleConnect("live")}
                   disabled={connecting}
                   className="flex-1"
                 >
-                  {connecting ? "Connecting…" : "Connect Live Account"}
+                  {connecting ? "Redirecting to Alpaca…" : "Connect Live Account"}
                 </Button>
               </div>
               <p className="text-xs text-muted-foreground">
@@ -130,9 +133,17 @@ function DashboardContent() {
                   Connected — {alpacaEnv === "paper" ? "Paper account" : "Live account"}
                 </p>
                 <p className="text-xs text-muted-foreground">
-                  Alpaca · OAuth · {alpacaEnv === "live" && <span className="text-amber-400">Real money</span>}
-                  {alpacaEnv === "paper" && "Paper money only"}
+                  Alpaca · OAuth ·{" "}
+                  {alpacaEnv === "live"
+                    ? <span className="text-amber-400">Real money</span>
+                    : <span>Paper money only</span>}
                 </p>
+                {account && (
+                  <p className="text-xs text-muted-foreground">
+                    Portfolio value: ${parseFloat(account.portfolio_value ?? "0").toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                    {" · "}Cash: ${parseFloat(account.cash ?? "0").toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                  </p>
+                )}
               </div>
               <Button variant="ghost" size="sm" onClick={handleDisconnect} className="gap-1.5 text-muted-foreground">
                 <Unplug className="w-3 h-3" /> Disconnect
@@ -164,7 +175,9 @@ function DashboardContent() {
                     <p className="text-sm font-medium capitalize">{getStrategyMeta(strategyParam).label}</p>
                     <p className="text-xs text-muted-foreground">{getStrategyMeta(strategyParam).description}</p>
                   </div>
-                  <Button size="sm" onClick={() => handleDeploy(strategyParam)}>Deploy</Button>
+                  <Button size="sm" onClick={() => handleDeploy(strategyParam)} disabled={deploying}>
+                    {deploying ? "Deploying…" : "Deploy"}
+                  </Button>
                 </div>
               ) : (
                 <Link href="/strategies">
@@ -214,10 +227,7 @@ function DashboardContent() {
                   variant="ghost"
                   size="sm"
                   className="text-muted-foreground"
-                  onClick={() => {
-                    setSubscription(null);
-                    localStorage.removeItem("aiet_subscription");
-                  }}
+                  onClick={() => setSubscription(null)}
                 >
                   Remove
                 </Button>
