@@ -44,3 +44,7 @@ next-env.d.ts
 backend/.env
 backend/aiet.db
 venv/
+__pycache__/
+**/__pycache__/
+**/*.pyc
+aiet.db
