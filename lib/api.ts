@@ -75,3 +75,48 @@ export function shortModel(model: string) {
   if (model.startsWith("gemini-2")) return "Gemini Flash 2";
   return model;
 }
+
+// --- Backend API ---
+const BACKEND = process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:8000";
+
+export async function getAlpacaAuthorizeUrl(env: "paper" | "live"): Promise<string> {
+  const res = await fetch(`${BACKEND}/auth/alpaca/authorize?env=${env}`);
+  const data = await res.json();
+  // Store state for CSRF verification
+  if (typeof window !== "undefined") sessionStorage.setItem("oauth_state", data.state);
+  return data.url;
+}
+
+export async function getUserAccount(userId: number) {
+  const res = await fetch(`${BACKEND}/users/${userId}/account`);
+  if (!res.ok) return null;
+  return res.json();
+}
+
+export async function getSubscriptions(userId: number) {
+  const res = await fetch(`${BACKEND}/users/${userId}/subscriptions`);
+  if (!res.ok) return [];
+  return res.json();
+}
+
+export async function createSubscription(userId: number, strategy: string, model: string) {
+  const res = await fetch(`${BACKEND}/users/${userId}/subscriptions`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ strategy, model }),
+  });
+  return res.json();
+}
+
+export async function pauseSubscription(userId: number, subId: number, active: boolean) {
+  const res = await fetch(`${BACKEND}/users/${userId}/subscriptions/${subId}?active=${active}`, {
+    method: "PATCH",
+  });
+  return res.json();
+}
+
+export async function getTrades(userId: number) {
+  const res = await fetch(`${BACKEND}/users/${userId}/trades`);
+  if (!res.ok) return [];
+  return res.json();
+}

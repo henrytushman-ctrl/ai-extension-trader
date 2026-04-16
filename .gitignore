@@ -40,3 +40,7 @@ yarn-error.log*
 *.tsbuildinfo
 next-env.d.ts
 .env.local
+.env
+backend/.env
+backend/aiet.db
+venv/
