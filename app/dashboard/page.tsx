@@ -2,12 +2,13 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
-import { BrainCircuit, CheckCircle2, Circle, ExternalLink, PauseCircle, PlayCircle, Unplug } from "lucide-react";
+import { CheckCircle2, Circle, ExternalLink, PauseCircle, PlayCircle, Unplug } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { getAlpacaAuthorizeUrl, getStrategyMeta, getUserAccount, getSubscriptions, createSubscription, pauseSubscription, shortModel } from "@/lib/api";
 import { Suspense } from "react";
+
 
 type BackendSub = {
   id: number;
@@ -276,16 +277,7 @@ function DashboardContent() {
 
 export default function DashboardPage() {
   return (
-    <main className="min-h-screen flex flex-col">
-      <nav className="border-b border-border px-6 py-4 flex items-center justify-between">
-        <Link href="/" className="flex items-center gap-2">
-          <BrainCircuit className="w-5 h-5 text-primary" />
-          <span className="font-semibold text-sm tracking-tight">AI Extension Trader</span>
-        </Link>
-        <Link href="/strategies" className="text-sm text-muted-foreground hover:text-foreground transition-colors">
-          Strategies
-        </Link>
-      </nav>
+    <main className="flex-1">
       <Suspense>
         <DashboardContent />
       </Suspense>

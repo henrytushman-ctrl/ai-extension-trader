@@ -1,7 +1,7 @@
 "use client";
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { BrainCircuit, ArrowRight, TrendingUp, TrendingDown } from "lucide-react";
+import { ArrowRight, TrendingUp, TrendingDown } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { fetchStrategies, getStrategyMeta, shortModel, type MatrixCell } from "@/lib/api";
@@ -43,18 +43,7 @@ export default function StrategiesPage() {
   const hasData = sorted.some(c => c.mean_return_pct != null);
 
   return (
-    <main className="min-h-screen flex flex-col">
-      {/* Nav */}
-      <nav className="border-b border-border px-6 py-4 flex items-center justify-between">
-        <Link href="/" className="flex items-center gap-2">
-          <BrainCircuit className="w-5 h-5 text-primary" />
-          <span className="font-semibold text-sm tracking-tight">AI Extension Trader</span>
-        </Link>
-        <Link href="/dashboard">
-          <Button size="sm">Connect Alpaca</Button>
-        </Link>
-      </nav>
-
+    <main className="flex-1">
       <div className="p-6 max-w-5xl mx-auto w-full space-y-6">
         {/* Header */}
         <div className="space-y-1">
@@ -147,3 +136,4 @@ export default function StrategiesPage() {
     </main>
   );
 }
+

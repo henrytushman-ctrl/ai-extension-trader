@@ -1,20 +1,9 @@
 import Link from "next/link";
-import { BrainCircuit } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
 export default function HowItWorksPage() {
   return (
-    <main className="min-h-screen flex flex-col">
-      <nav className="border-b border-border px-6 py-4 flex items-center justify-between">
-        <Link href="/" className="flex items-center gap-2">
-          <BrainCircuit className="w-5 h-5 text-primary" />
-          <span className="font-semibold text-sm tracking-tight">AI Extension Trader</span>
-        </Link>
-        <Link href="/dashboard">
-          <Button size="sm">Connect Alpaca</Button>
-        </Link>
-      </nav>
-
+    <main className="flex-1">
       <div className="p-6 max-w-2xl mx-auto w-full space-y-10 pb-16">
         <div>
           <h1 className="text-xl font-bold">How it works</h1>

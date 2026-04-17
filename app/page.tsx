@@ -1,27 +1,11 @@
 import Link from "next/link";
-import { ArrowRight, BarChart3, BrainCircuit, ShieldCheck, Zap } from "lucide-react";
+import { ArrowRight, BarChart3, ShieldCheck, Zap } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 
 export default function LandingPage() {
   return (
-    <main className="flex flex-col min-h-screen">
-      {/* Nav */}
-      <nav className="border-b border-border px-6 py-4 flex items-center justify-between">
-        <div className="flex items-center gap-2">
-          <BrainCircuit className="w-5 h-5 text-primary" />
-          <span className="font-semibold text-sm tracking-tight">AI Extension Trader</span>
-        </div>
-        <div className="flex items-center gap-4">
-          <Link href="/strategies" className="text-sm text-muted-foreground hover:text-foreground transition-colors">
-            Strategies
-          </Link>
-          <Link href="/dashboard">
-            <Button size="sm">Connect Alpaca</Button>
-          </Link>
-        </div>
-      </nav>
-
+    <main className="flex flex-col flex-1">
       {/* Hero */}
       <section className="flex-1 flex flex-col items-center justify-center text-center px-6 py-24 max-w-3xl mx-auto space-y-6">
         <Badge variant="secondary" className="text-xs font-mono">
