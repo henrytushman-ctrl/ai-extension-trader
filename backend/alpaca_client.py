@@ -3,6 +3,7 @@ Alpaca OAuth and trading API helpers.
 Docs: https://docs.alpaca.markets/reference/oauth-overview
 """
 import httpx
+from urllib.parse import urlencode
 from backend.config import settings
 
 ALPACA_OAUTH_AUTHORIZE = "https://app.alpaca.markets/oauth/authorize"
@@ -13,15 +14,14 @@ ALPACA_API_LIVE = "https://api.alpaca.markets/v2"
 
 def get_authorize_url(state: str, env: str = "paper") -> str:
     """Build the URL to redirect users to for OAuth consent."""
-    scope = "account:write trading"
-    return (
-        f"{ALPACA_OAUTH_AUTHORIZE}"
-        f"?response_type=code"
-        f"&client_id={settings.alpaca_client_id}"
-        f"&redirect_uri={settings.alpaca_redirect_uri}"
-        f"&scope={scope}"
-        f"&state={state}"
-    )
+    params = urlencode({
+        "response_type": "code",
+        "client_id": settings.alpaca_client_id,
+        "redirect_uri": settings.alpaca_redirect_uri,
+        "scope": "account:write trading",
+        "state": state,
+    })
+    return f"{ALPACA_OAUTH_AUTHORIZE}?{params}"
 
 
 def exchange_code(code: str) -> dict:
