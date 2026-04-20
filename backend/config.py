@@ -4,6 +4,7 @@ from pydantic_settings import BaseSettings
 class Settings(BaseSettings):
     database_url: str = "sqlite:///./aiet.db"
     secret_key: str = "dev-secret-change-in-production"
+    admin_secret: str = "dev-admin-secret-change-in-production"
 
     # Alpaca OAuth app credentials
     alpaca_client_id: str = ""

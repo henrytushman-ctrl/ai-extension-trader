@@ -11,6 +11,7 @@ from backend.models import User, Subscription, UserTrade
 from backend.alpaca_client import get_account, get_positions, submit_order
 from backend.agents import run_agent
 from backend.config import settings
+from backend.crypto import decrypt_token
 
 
 SP500_SAMPLE = [
@@ -55,9 +56,15 @@ def run_user_step(user: User, sub: Subscription, db: Session) -> dict:
     env = user.environment.value
     today = date.today()
 
+    # Decrypt broker token
+    try:
+        access_token = decrypt_token(user.access_token)
+    except Exception as e:
+        return {"error": f"Token decryption failed: {e}"}
+
     # 1. Get account state from Alpaca
     try:
-        account = get_account(user.access_token, env)
+        account = get_account(access_token, env)
         cash = float(account.get("cash", 0))
         portfolio_value = float(account.get("portfolio_value", cash))
     except Exception as e:
@@ -65,7 +72,7 @@ def run_user_step(user: User, sub: Subscription, db: Session) -> dict:
 
     # 2. Get current positions from Alpaca
     try:
-        positions = get_positions(user.access_token, env)
+        positions = get_positions(access_token, env)
     except Exception as e:
         return {"error": f"Alpaca positions fetch failed: {e}"}
 
@@ -101,7 +108,7 @@ def run_user_step(user: User, sub: Subscription, db: Session) -> dict:
     )
 
     # 5. Apply hard position limits before executing
-    trades = _apply_limits(result.get("trades", []), portfolio_value, prices)
+    trades = _apply_limits(result.get("trades", []), portfolio_value, prices, holdings)
 
     # 6. Execute trades on Alpaca
     executed = []
@@ -114,14 +121,20 @@ def run_user_step(user: User, sub: Subscription, db: Session) -> dict:
         if shares <= 0 or action == "hold" or price <= 0:
             continue
 
-        alpaca_side = "buy" if action in ("buy",) else "sell"
+        # Map AI action to Alpaca side
+        if action in ("buy", "cover"):
+            alpaca_side = "buy"
+        elif action in ("sell", "short"):
+            alpaca_side = "sell"
+        else:
+            continue  # unknown action — skip
 
         try:
-            order = submit_order(user.access_token, ticker, shares, alpaca_side, env)
+            order = submit_order(access_token, ticker, shares, alpaca_side, env)
             order_id = order.get("id")
         except Exception as e:
-            order_id = None
             print(f"  Order failed {ticker}: {e}")
+            continue  # Don't log failed orders
 
         db.add(UserTrade(
             user_id=user.id,
@@ -147,8 +160,8 @@ def run_user_step(user: User, sub: Subscription, db: Session) -> dict:
     }
 
 
-def _apply_limits(trades: list[dict], portfolio_value: float, prices: dict) -> list[dict]:
-    """Hard-enforce: max 20% per position, max 50% turnover."""
+def _apply_limits(trades: list[dict], portfolio_value: float, prices: dict, holdings: dict) -> list[dict]:
+    """Hard-enforce: max 20% per position, max 50% turnover. Prevent overselling."""
     if portfolio_value <= 0:
         return []
     max_pos = 0.20 * portfolio_value
@@ -157,10 +170,19 @@ def _apply_limits(trades: list[dict], portfolio_value: float, prices: dict) -> l
     out = []
     for d in trades:
         ticker = d.get("ticker", "")
+        action = d.get("action", "")
         shares = float(d.get("shares", 0))
         price = prices.get(ticker, 0)
         if shares <= 0 or price <= 0:
             continue
+
+        # For sells: cap to owned shares so we don't accidentally short
+        if action == "sell":
+            owned = holdings.get(ticker, {}).get("shares", 0)
+            if owned <= 0:
+                continue  # Not held — skip to prevent unintentional short
+            shares = min(shares, owned)
+
         value = shares * price
         value = min(value, max_pos, max_turnover - spent)
         if value < price:

@@ -1,4 +1,4 @@
-from fastapi import FastAPI, Depends, HTTPException, Query
+from fastapi import FastAPI, Depends, HTTPException, Query, Header
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy.orm import Session
 from pydantic import BaseModel
@@ -8,6 +8,7 @@ from backend.db import get_db, engine, Base
 from backend.models import User, Subscription, UserTrade, BrokerEnv
 from backend.alpaca_client import get_authorize_url, exchange_code, get_account
 from backend.config import settings
+from backend.crypto import encrypt_token, decrypt_token
 
 Base.metadata.create_all(bind=engine)
 
@@ -20,6 +21,36 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+# ---------------------------------------------------------------------------
+# In-memory OAuth state store  {state_token: env}
+# Short-lived (seconds); single-process deployment is fine for MVP.
+# ---------------------------------------------------------------------------
+_pending_states: dict[str, str] = {}
+
+
+# ---------------------------------------------------------------------------
+# Auth dependency — validates X-Session-Token ownership
+# ---------------------------------------------------------------------------
+
+def require_user(
+    user_id: int,
+    x_session_token: str = Header(...),
+    db: Session = Depends(get_db),
+) -> User:
+    user = db.get(User, user_id)
+    if not user or user.session_token != x_session_token:
+        raise HTTPException(401, "Unauthorized")
+    return user
+
+
+# ---------------------------------------------------------------------------
+# Admin dependency
+# ---------------------------------------------------------------------------
+
+def require_admin(x_admin_secret: str = Header(...)):
+    if x_admin_secret != settings.admin_secret:
+        raise HTTPException(401, "Unauthorized")
 
 
 # ---------------------------------------------------------------------------
@@ -38,14 +69,22 @@ def health():
 @app.get("/auth/alpaca/authorize")
 def alpaca_authorize(env: str = Query("paper")):
     """Return the Alpaca OAuth URL to redirect the user to."""
-    state = secrets.token_urlsafe(16)
+    if env not in ("paper", "live"):
+        raise HTTPException(400, "env must be 'paper' or 'live'")
+    state = secrets.token_urlsafe(32)
+    _pending_states[state] = env
     url = get_authorize_url(state=state, env=env)
     return {"url": url, "state": state}
 
 
 @app.get("/auth/alpaca/callback")
-def alpaca_callback(code: str, state: str, env: str = Query("paper"), db: Session = Depends(get_db)):
+def alpaca_callback(code: str, state: str, db: Session = Depends(get_db)):
     """Handle OAuth callback — exchange code for token, create/update user."""
+    # Validate state (CSRF protection)
+    env = _pending_states.pop(state, None)
+    if env is None:
+        raise HTTPException(400, "Invalid or expired OAuth state")
+
     try:
         token_data = exchange_code(code)
     except Exception as e:
@@ -61,24 +100,33 @@ def alpaca_callback(code: str, state: str, env: str = Query("paper"), db: Sessio
     except Exception as e:
         raise HTTPException(400, f"Could not fetch Alpaca account: {e}")
 
+    # Encrypt tokens before storing
+    enc_access = encrypt_token(access_token)
+    enc_refresh = encrypt_token(refresh_token) if refresh_token else None
+
+    # Generate a session token for this login
+    session_token = secrets.token_urlsafe(32)
+
     user = db.query(User).filter_by(alpaca_account_id=alpaca_id).first()
     if user:
-        user.access_token = access_token
-        if refresh_token:
-            user.refresh_token = refresh_token
+        user.access_token = enc_access
+        if enc_refresh:
+            user.refresh_token = enc_refresh
         user.environment = BrokerEnv(env)
+        user.session_token = session_token
     else:
         user = User(
             alpaca_account_id=alpaca_id,
-            access_token=access_token,
-            refresh_token=refresh_token,
+            access_token=enc_access,
+            refresh_token=enc_refresh,
             environment=BrokerEnv(env),
+            session_token=session_token,
         )
         db.add(user)
 
     db.commit()
     db.refresh(user)
-    return {"user_id": user.id, "environment": env}
+    return {"user_id": user.id, "session_token": session_token, "environment": env}
 
 
 # ---------------------------------------------------------------------------
@@ -86,14 +134,12 @@ def alpaca_callback(code: str, state: str, env: str = Query("paper"), db: Sessio
 # ---------------------------------------------------------------------------
 
 @app.get("/users/{user_id}/account")
-def get_user_account(user_id: int, db: Session = Depends(get_db)):
-    user = db.get(User, user_id)
-    if not user:
-        raise HTTPException(404, "User not found")
+def get_user_account(user: User = Depends(require_user)):
     try:
-        account = get_account(user.access_token, user.environment.value)
+        access_token = decrypt_token(user.access_token)
+        account = get_account(access_token, user.environment.value)
         return {
-            "user_id": user_id,
+            "user_id": user.id,
             "environment": user.environment.value,
             "portfolio_value": account.get("portfolio_value"),
             "cash": account.get("cash"),
@@ -115,8 +161,8 @@ class SubscribeRequest(BaseModel):
 
 
 @app.get("/users/{user_id}/subscriptions")
-def list_subscriptions(user_id: int, db: Session = Depends(get_db)):
-    subs = db.query(Subscription).filter_by(user_id=user_id).all()
+def list_subscriptions(user: User = Depends(require_user), db: Session = Depends(get_db)):
+    subs = db.query(Subscription).filter_by(user_id=user.id).all()
     return [
         {
             "id": s.id,
@@ -132,14 +178,11 @@ def list_subscriptions(user_id: int, db: Session = Depends(get_db)):
 
 
 @app.post("/users/{user_id}/subscriptions")
-def create_subscription(user_id: int, req: SubscribeRequest, db: Session = Depends(get_db)):
-    user = db.get(User, user_id)
-    if not user:
-        raise HTTPException(404, "User not found")
+def create_subscription(req: SubscribeRequest, user: User = Depends(require_user), db: Session = Depends(get_db)):
     # Deactivate existing subscriptions (one active at a time for MVP)
-    db.query(Subscription).filter_by(user_id=user_id, active=True).update({"active": False})
+    db.query(Subscription).filter_by(user_id=user.id, active=True).update({"active": False})
     sub = Subscription(
-        user_id=user_id,
+        user_id=user.id,
         strategy=req.strategy,
         model=req.model,
         has_news=req.has_news,
@@ -153,8 +196,8 @@ def create_subscription(user_id: int, req: SubscribeRequest, db: Session = Depen
 
 
 @app.patch("/users/{user_id}/subscriptions/{sub_id}")
-def update_subscription(user_id: int, sub_id: int, active: bool, db: Session = Depends(get_db)):
-    sub = db.query(Subscription).filter_by(id=sub_id, user_id=user_id).first()
+def update_subscription(sub_id: int, active: bool, user: User = Depends(require_user), db: Session = Depends(get_db)):
+    sub = db.query(Subscription).filter_by(id=sub_id, user_id=user.id).first()
     if not sub:
         raise HTTPException(404, "Subscription not found")
     sub.active = active
@@ -167,10 +210,10 @@ def update_subscription(user_id: int, sub_id: int, active: bool, db: Session = D
 # ---------------------------------------------------------------------------
 
 @app.get("/users/{user_id}/trades")
-def list_trades(user_id: int, limit: int = 50, db: Session = Depends(get_db)):
+def list_trades(limit: int = 50, user: User = Depends(require_user), db: Session = Depends(get_db)):
     trades = (
         db.query(UserTrade)
-        .filter_by(user_id=user_id)
+        .filter_by(user_id=user.id)
         .order_by(UserTrade.executed_at.desc())
         .limit(limit)
         .all()
@@ -195,7 +238,7 @@ def list_trades(user_id: int, limit: int = 50, db: Session = Depends(get_db)):
 # ---------------------------------------------------------------------------
 
 @app.post("/run-all")
-def run_all(db: Session = Depends(get_db)):
+def run_all(_: None = Depends(require_admin), db: Session = Depends(get_db)):
     """Run the weekly AI trading step for all active subscriptions."""
     from backend.executor import run_user_step
 

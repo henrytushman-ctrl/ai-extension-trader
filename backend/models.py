@@ -15,10 +15,11 @@ class User(Base):
 
     id: Mapped[int] = mapped_column(primary_key=True)
     alpaca_account_id: Mapped[str] = mapped_column(String, unique=True, index=True)
-    access_token: Mapped[str] = mapped_column(String)          # encrypted in production
-    refresh_token: Mapped[str | None] = mapped_column(String, nullable=True)
+    access_token: Mapped[str] = mapped_column(String)          # Fernet-encrypted at rest
+    refresh_token: Mapped[str | None] = mapped_column(String, nullable=True)  # Fernet-encrypted
     token_expires_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
     environment: Mapped[BrokerEnv] = mapped_column(SAEnum(BrokerEnv), default=BrokerEnv.paper)
+    session_token: Mapped[str | None] = mapped_column(String, nullable=True, index=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
 
     subscriptions: Mapped[list["Subscription"]] = relationship(back_populates="user", cascade="all, delete-orphan")
