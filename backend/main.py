@@ -205,6 +205,16 @@ def update_subscription(sub_id: int, active: bool, user: User = Depends(require_
     return {"id": sub.id, "active": sub.active}
 
 
+@app.delete("/users/{user_id}/subscriptions/{sub_id}")
+def delete_subscription(sub_id: int, user: User = Depends(require_user), db: Session = Depends(get_db)):
+    sub = db.query(Subscription).filter_by(id=sub_id, user_id=user.id).first()
+    if not sub:
+        raise HTTPException(404, "Subscription not found")
+    db.delete(sub)
+    db.commit()
+    return {"deleted": sub_id}
+
+
 # ---------------------------------------------------------------------------
 # Trades
 # ---------------------------------------------------------------------------

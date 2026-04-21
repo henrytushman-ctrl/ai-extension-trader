@@ -87,36 +87,55 @@ export async function getAlpacaAuthorizeUrl(env: "paper" | "live"): Promise<stri
   return data.url;
 }
 
-export async function getUserAccount(userId: number) {
-  const res = await fetch(`${BACKEND}/users/${userId}/account`);
+function authHeaders(sessionToken: string): Record<string, string> {
+  return { "X-Session-Token": sessionToken };
+}
+
+export async function getUserAccount(userId: number, sessionToken: string) {
+  const res = await fetch(`${BACKEND}/users/${userId}/account`, {
+    headers: authHeaders(sessionToken),
+  });
   if (!res.ok) return null;
   return res.json();
 }
 
-export async function getSubscriptions(userId: number) {
-  const res = await fetch(`${BACKEND}/users/${userId}/subscriptions`);
+export async function getSubscriptions(userId: number, sessionToken: string) {
+  const res = await fetch(`${BACKEND}/users/${userId}/subscriptions`, {
+    headers: authHeaders(sessionToken),
+  });
   if (!res.ok) return [];
   return res.json();
 }
 
-export async function createSubscription(userId: number, strategy: string, model: string) {
+export async function createSubscription(userId: number, strategy: string, model: string, sessionToken: string) {
   const res = await fetch(`${BACKEND}/users/${userId}/subscriptions`, {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    headers: { "Content-Type": "application/json", ...authHeaders(sessionToken) },
     body: JSON.stringify({ strategy, model }),
   });
   return res.json();
 }
 
-export async function pauseSubscription(userId: number, subId: number, active: boolean) {
+export async function pauseSubscription(userId: number, subId: number, active: boolean, sessionToken: string) {
   const res = await fetch(`${BACKEND}/users/${userId}/subscriptions/${subId}?active=${active}`, {
     method: "PATCH",
+    headers: authHeaders(sessionToken),
   });
   return res.json();
 }
 
-export async function getTrades(userId: number) {
-  const res = await fetch(`${BACKEND}/users/${userId}/trades`);
+export async function deleteSubscription(userId: number, subId: number, sessionToken: string) {
+  const res = await fetch(`${BACKEND}/users/${userId}/subscriptions/${subId}`, {
+    method: "DELETE",
+    headers: authHeaders(sessionToken),
+  });
+  return res.ok;
+}
+
+export async function getTrades(userId: number, sessionToken: string) {
+  const res = await fetch(`${BACKEND}/users/${userId}/trades`, {
+    headers: authHeaders(sessionToken),
+  });
   if (!res.ok) return [];
   return res.json();
 }

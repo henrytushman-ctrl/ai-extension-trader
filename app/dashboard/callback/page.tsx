@@ -35,6 +35,7 @@ function CallbackContent() {
         if (data.user_id) {
           localStorage.setItem("aiet_user_id", String(data.user_id));
           localStorage.setItem("aiet_env", data.environment);
+          localStorage.setItem("aiet_session_token", data.session_token ?? "");
           setStatus("success");
           setTimeout(() => router.push("/dashboard"), 1500);
         } else {

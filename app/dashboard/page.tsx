@@ -6,7 +6,17 @@ import { CheckCircle2, Circle, ExternalLink, PauseCircle, PlayCircle, Unplug } f
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { getAlpacaAuthorizeUrl, getStrategyMeta, getUserAccount, getSubscriptions, createSubscription, pauseSubscription, shortModel } from "@/lib/api";
+import {
+  getAlpacaAuthorizeUrl,
+  getStrategyMeta,
+  getUserAccount,
+  getSubscriptions,
+  createSubscription,
+  pauseSubscription,
+  deleteSubscription,
+  getTrades,
+  shortModel,
+} from "@/lib/api";
 import { Suspense } from "react";
 
 
@@ -18,30 +28,59 @@ type BackendSub = {
   created_at: string;
 };
 
+type Trade = {
+  id: number;
+  ticker: string;
+  action: string;
+  shares: number;
+  price: number;
+  reasoning: string;
+  executed_at: string;
+  alpaca_order_id: string | null;
+};
+
+function nextFridayET(): string {
+  const now = new Date();
+  // Convert to ET (UTC-4 in summer, UTC-5 in winter)
+  const etOffset = -4; // EDT
+  const et = new Date(now.getTime() + etOffset * 60 * 60 * 1000);
+  const dow = et.getUTCDay(); // 0=Sun, 5=Fri
+  const daysUntilFriday = (5 - dow + 7) % 7 || 7;
+  const next = new Date(et);
+  next.setUTCDate(next.getUTCDate() + daysUntilFriday);
+  return next.toLocaleDateString("en-US", { weekday: "long", year: "numeric", month: "long", day: "numeric", timeZone: "UTC" });
+}
+
 function DashboardContent() {
   const searchParams = useSearchParams();
   const [userId, setUserId] = useState<number | null>(null);
+  const [sessionToken, setSessionToken] = useState<string>("");
   const [alpacaEnv, setAlpacaEnv] = useState<"paper" | "live">("paper");
   const [account, setAccount] = useState<Record<string, string> | null>(null);
   const [subscription, setSubscription] = useState<BackendSub | null>(null);
+  const [trades, setTrades] = useState<Trade[]>([]);
   const [connecting, setConnecting] = useState(false);
   const [deploying, setDeploying] = useState(false);
+  const [removing, setRemoving] = useState(false);
 
   const strategyParam = searchParams.get("strategy");
 
   useEffect(() => {
     const storedUserId = localStorage.getItem("aiet_user_id");
     const storedEnv = localStorage.getItem("aiet_env") as "paper" | "live" | null;
-    if (!storedUserId) return;
+    const storedToken = localStorage.getItem("aiet_session_token") ?? "";
+    if (!storedUserId || !storedToken) return;
     const uid = Number(storedUserId);
     setUserId(uid);
+    setSessionToken(storedToken);
     if (storedEnv) setAlpacaEnv(storedEnv);
-    // Fetch account + subscriptions from backend
-    getUserAccount(uid).then(acct => { if (acct) setAccount(acct); });
-    getSubscriptions(uid).then((subs: BackendSub[]) => {
-      const active = subs.find(s => s.active) ?? subs[0] ?? null;
+
+    getUserAccount(uid, storedToken).then(acct => { if (acct) setAccount(acct); });
+    getSubscriptions(uid, storedToken).then((subs: BackendSub[]) => {
+      const active = subs.find(s => s.active) ?? null;
       setSubscription(active);
     });
+    getTrades(uid, storedToken).then((t: Trade[]) => setTrades(t));
   }, []);
 
   async function handleConnect(env: "paper" | "live") {
@@ -58,16 +97,19 @@ function DashboardContent() {
   function handleDisconnect() {
     localStorage.removeItem("aiet_user_id");
     localStorage.removeItem("aiet_env");
+    localStorage.removeItem("aiet_session_token");
     setUserId(null);
+    setSessionToken("");
     setAccount(null);
     setSubscription(null);
+    setTrades([]);
   }
 
   async function handleDeploy(strategyKey: string) {
-    if (!userId) return;
+    if (!userId || !sessionToken) return;
     setDeploying(true);
     try {
-      const sub = await createSubscription(userId, strategyKey, "claude-haiku-4-5-20251001");
+      const sub = await createSubscription(userId, strategyKey, "claude-haiku-4-5-20251001", sessionToken);
       setSubscription(sub);
     } finally {
       setDeploying(false);
@@ -75,13 +117,25 @@ function DashboardContent() {
   }
 
   async function handleToggle() {
-    if (!subscription || !userId) return;
-    const updated = await pauseSubscription(userId, subscription.id, !subscription.active);
+    if (!subscription || !userId || !sessionToken) return;
+    const updated = await pauseSubscription(userId, subscription.id, !subscription.active, sessionToken);
     setSubscription(updated);
   }
 
-  const connected = !!userId && !!account;
+  async function handleRemove() {
+    if (!subscription || !userId || !sessionToken) return;
+    setRemoving(true);
+    try {
+      await deleteSubscription(userId, subscription.id, sessionToken);
+      setSubscription(null);
+    } finally {
+      setRemoving(false);
+    }
+  }
+
+  const connected = !!userId && !!account && !!sessionToken;
   const meta = subscription ? getStrategyMeta(subscription.strategy) : null;
+  const nextExecution = nextFridayET();
 
   return (
     <div className="p-6 max-w-2xl mx-auto w-full space-y-6">
@@ -216,7 +270,7 @@ function DashboardContent() {
 
               <div className="rounded-md bg-muted/40 border border-border px-4 py-3 text-sm text-muted-foreground space-y-1">
                 <p className="font-medium text-foreground text-xs">Next execution</p>
-                <p className="text-xs">Friday, April 18, 2026 · 4:30pm ET</p>
+                <p className="text-xs">{nextExecution} · 4:30pm ET</p>
                 <p className="text-xs">The AI will review your {alpacaEnv} portfolio and submit trade decisions to Alpaca.</p>
               </div>
 
@@ -228,9 +282,10 @@ function DashboardContent() {
                   variant="ghost"
                   size="sm"
                   className="text-muted-foreground"
-                  onClick={() => setSubscription(null)}
+                  onClick={handleRemove}
+                  disabled={removing}
                 >
-                  Remove
+                  {removing ? "Removing…" : "Remove"}
                 </Button>
               </div>
             </div>
@@ -238,18 +293,55 @@ function DashboardContent() {
         </CardContent>
       </Card>
 
-      {/* Step 3: Trades (empty state) */}
+      {/* Step 3: Trade history */}
       <Card className={!subscription ? "opacity-50 pointer-events-none" : ""}>
         <CardHeader className="pb-3">
           <CardTitle className="text-base flex items-center gap-2">
-            <Circle className="w-4 h-4 text-muted-foreground" />
+            {trades.length > 0
+              ? <CheckCircle2 className="w-4 h-4 text-green-500" />
+              : <Circle className="w-4 h-4 text-muted-foreground" />}
             Step 3 — Trade history
           </CardTitle>
         </CardHeader>
         <CardContent>
-          <p className="text-sm text-muted-foreground py-4 text-center">
-            Trade history will appear here after the first execution on April 18.
-          </p>
+          {trades.length === 0 ? (
+            <p className="text-sm text-muted-foreground py-4 text-center">
+              No trades yet. First execution runs {nextExecution} at 4:30pm ET.
+            </p>
+          ) : (
+            <div className="space-y-2">
+              {trades.map(trade => (
+                <div key={trade.id} className="flex items-start justify-between gap-4 py-2 border-b border-border last:border-0">
+                  <div className="space-y-0.5 min-w-0">
+                    <div className="flex items-center gap-2">
+                      <span className="font-mono font-semibold text-sm">{trade.ticker}</span>
+                      <Badge
+                        variant="secondary"
+                        className={`text-xs capitalize ${
+                          trade.action === "buy" || trade.action === "cover"
+                            ? "text-green-400"
+                            : trade.action === "sell" || trade.action === "short"
+                            ? "text-red-400"
+                            : ""
+                        }`}
+                      >
+                        {trade.action}
+                      </Badge>
+                    </div>
+                    {trade.reasoning && (
+                      <p className="text-xs text-muted-foreground leading-relaxed truncate max-w-xs">{trade.reasoning}</p>
+                    )}
+                  </div>
+                  <div className="text-right shrink-0 space-y-0.5">
+                    <p className="text-sm font-mono">{trade.shares.toFixed(0)} @ ${trade.price.toFixed(2)}</p>
+                    <p className="text-xs text-muted-foreground">
+                      {new Date(trade.executed_at).toLocaleDateString("en-US", { month: "short", day: "numeric" })}
+                    </p>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
         </CardContent>
       </Card>
 
