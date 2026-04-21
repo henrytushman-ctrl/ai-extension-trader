@@ -51,7 +51,7 @@ export default function LandingPage() {
               icon: <BarChart3 className="w-5 h-5 text-primary" />,
               step: "01",
               title: "Browse live results",
-              body: "See real performance data from 726 AI paper-trading trials running since April 2026. Ranked by return, alpha, and strategy.",
+              body: "See real performance data from 726 AI paper-trading trials, ranked by return, alpha, and strategy. Updated every Friday.",
             },
             {
               icon: <Zap className="w-5 h-5 text-primary" />,
@@ -83,8 +83,8 @@ export default function LandingPage() {
         <div className="max-w-2xl mx-auto text-center space-y-4">
           <h2 className="text-lg font-semibold">Built on a real experiment</h2>
           <p className="text-sm text-muted-foreground leading-relaxed">
-            Unlike black-box robo-advisors, every strategy here is publicly tested. 726 AI agents have been trading paper
-            money since April 13, 2026 across 7 strategies and 3 AI models (Claude Haiku, GPT-4o-mini, Gemini Flash 2).
+            Unlike black-box robo-advisors, every strategy here is publicly tested. 726 AI agents trade paper money weekly
+            across 7 strategies and 3 AI models (Claude Haiku, GPT-4o-mini, Gemini Flash 2).
             You see exactly what works before deploying real capital.
           </p>
           <div className="flex items-center justify-center gap-6 pt-2 text-xs text-muted-foreground">

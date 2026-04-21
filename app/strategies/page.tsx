@@ -49,20 +49,10 @@ export default function StrategiesPage() {
         <div className="space-y-1">
           <h1 className="text-xl font-bold">Strategy Marketplace</h1>
           <p className="text-sm text-muted-foreground">
-            Live performance from {cells.length} strategy configurations tested since April 13, 2026.
-            {!hasData && " First trade data available after April 18, 2026."}
+            {cells.length} strategy configurations running live since April 2026.
+            {!hasData && " Returns appear after the first full week of trades."}
           </p>
         </div>
-
-        {/* Pre-experiment notice */}
-        {!hasData && (
-          <div className="rounded-md border border-amber-500/30 bg-amber-500/8 px-4 py-3 text-sm text-amber-400/90">
-            <p className="font-semibold">Experiment in progress — first trade runs Friday April 18, 2026</p>
-            <p className="text-amber-400/70 text-xs mt-1">
-              Returns shown once weekly trade data is available. Strategies and AI models are already configured and running in paper trials.
-            </p>
-          </div>
-        )}
 
         {/* Strategy cards */}
         {loading ? (
