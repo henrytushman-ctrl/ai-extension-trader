@@ -59,6 +59,7 @@ function DashboardContent() {
   const [subscription, setSubscription] = useState<BackendSub | null>(null);
   const [trades, setTrades] = useState<Trade[]>([]);
   const [connecting, setConnecting] = useState(false);
+  const [connectSlow, setConnectSlow] = useState(false);
   const [deploying, setDeploying] = useState(false);
   const [removing, setRemoving] = useState(false);
 
@@ -85,12 +86,17 @@ function DashboardContent() {
 
   async function handleConnect(env: "paper" | "live") {
     setConnecting(true);
+    setConnectSlow(false);
     localStorage.setItem("aiet_pending_env", env);
+    const slowTimer = setTimeout(() => setConnectSlow(true), 4000);
     try {
       const url = await getAlpacaAuthorizeUrl(env);
+      clearTimeout(slowTimer);
       window.location.href = url;
     } catch {
+      clearTimeout(slowTimer);
       setConnecting(false);
+      setConnectSlow(false);
     }
   }
 
@@ -167,19 +173,26 @@ function DashboardContent() {
                   variant="outline"
                   className="flex-1"
                 >
-                  {connecting ? "Redirecting to Alpaca…" : "Connect Paper Account"}
+                  {connecting ? "Connecting…" : "Connect Paper Account"}
                 </Button>
                 <Button
                   onClick={() => handleConnect("live")}
                   disabled={connecting}
                   className="flex-1"
                 >
-                  {connecting ? "Redirecting to Alpaca…" : "Connect Live Account"}
+                  {connecting ? "Connecting…" : "Connect Live Account"}
                 </Button>
               </div>
-              <p className="text-xs text-muted-foreground">
-                Start with paper trading to test the strategy before using real money.
-              </p>
+              {connectSlow && (
+                <p className="text-xs text-muted-foreground">
+                  Server is waking up — this can take up to 30 seconds. Hold tight…
+                </p>
+              )}
+              {!connectSlow && (
+                <p className="text-xs text-muted-foreground">
+                  Start with paper trading to test the strategy before using real money.
+                </p>
+              )}
             </div>
           ) : (
             <div className="flex items-center justify-between">
