@@ -22,9 +22,13 @@ export type MatrixCell = {
 };
 
 export async function fetchStrategies(): Promise<MatrixCell[]> {
-  const res = await fetch(`${AI_TRADER_API}/analytics/matrix`);
-  if (!res.ok) return [];
-  return res.json();
+  try {
+    const res = await fetch("/api/strategies");
+    if (!res.ok) return [];
+    return res.json();
+  } catch {
+    return [];
+  }
 }
 
 const STRATEGY_META: Record<string, { label: string; description: string }> = {

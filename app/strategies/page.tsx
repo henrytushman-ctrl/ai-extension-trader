@@ -29,10 +29,9 @@ export default function StrategiesPage() {
   const [selected, setSelected] = useState<string | null>(null);
 
   useEffect(() => {
-    fetchStrategies().then(d => {
-      setCells(d);
-      setLoading(false);
-    });
+    fetchStrategies()
+      .then(d => setCells(d))
+      .finally(() => setLoading(false));
   }, []);
 
   // Sort by mean return descending, nulls last
