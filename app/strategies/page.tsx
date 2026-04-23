@@ -91,9 +91,16 @@ export default function StrategiesPage() {
                       <p className="text-xs text-muted-foreground leading-relaxed">{meta.description}</p>
                     </div>
 
-                    <div className="text-right shrink-0 space-y-1">
+                    <div className="text-right shrink-0 space-y-1.5">
                       <div>{fmt(cell.mean_return_pct)}</div>
                       <p className="text-xs text-muted-foreground">{cell.trial_count} trial{cell.trial_count !== 1 ? "s" : ""}</p>
+                      <Link
+                        href={`/simulate?key=${encodeURIComponent(cell.key)}`}
+                        onClick={e => e.stopPropagation()}
+                        className="block text-xs text-primary hover:underline underline-offset-2 font-medium"
+                      >
+                        Try it free →
+                      </Link>
                     </div>
                   </div>
 

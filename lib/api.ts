@@ -1,5 +1,18 @@
 const AI_TRADER_API = process.env.NEXT_PUBLIC_AI_TRADER_API || "https://ai-trader-jylt.onrender.com";
 
+export type Benchmark = { label: string; ticker: string; return_pct: number };
+export type BenchmarkData = { avg_ai_return: number; since_date: string; benchmarks: Benchmark[] };
+
+export async function fetchBenchmarks(): Promise<BenchmarkData | null> {
+  try {
+    const res = await fetch("/api/benchmarks");
+    if (!res.ok) return null;
+    return res.json();
+  } catch {
+    return null;
+  }
+}
+
 export type Strategy = {
   key: string;
   label: string;
