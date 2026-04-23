@@ -27,12 +27,6 @@ export async function fetchStrategies(): Promise<MatrixCell[]> {
   return res.json();
 }
 
-export async function fetchAggregate() {
-  const res = await fetch(`${AI_TRADER_API}/analytics/aggregate`, { next: { revalidate: 3600 } });
-  if (!res.ok) return [];
-  return res.json();
-}
-
 const STRATEGY_META: Record<string, { label: string; description: string }> = {
   value: {
     label: "Value",

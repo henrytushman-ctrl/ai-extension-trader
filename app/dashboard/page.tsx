@@ -41,14 +41,13 @@ type Trade = {
 
 function nextFridayET(): string {
   const now = new Date();
-  // Convert to ET (UTC-4 in summer, UTC-5 in winter)
-  const etOffset = -4; // EDT
-  const et = new Date(now.getTime() + etOffset * 60 * 60 * 1000);
-  const dow = et.getUTCDay(); // 0=Sun, 5=Fri
-  const daysUntilFriday = (5 - dow + 7) % 7 || 7;
-  const next = new Date(et);
-  next.setUTCDate(next.getUTCDate() + daysUntilFriday);
-  return next.toLocaleDateString("en-US", { weekday: "long", year: "numeric", month: "long", day: "numeric", timeZone: "UTC" });
+  const dow = new Intl.DateTimeFormat("en-US", { weekday: "short", timeZone: "America/New_York" })
+    .format(now);
+  const dayIndex = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"].indexOf(dow);
+  const daysUntilFriday = (5 - dayIndex + 7) % 7 || 7;
+  const next = new Date(now);
+  next.setDate(next.getDate() + daysUntilFriday);
+  return next.toLocaleDateString("en-US", { weekday: "long", year: "numeric", month: "long", day: "numeric", timeZone: "America/New_York" });
 }
 
 function DashboardContent() {
@@ -64,6 +63,7 @@ function DashboardContent() {
   const [removing, setRemoving] = useState(false);
 
   const strategyParam = searchParams.get("strategy");
+  const modelParam = searchParams.get("model") ?? "claude-haiku-4-5-20251001";
 
   useEffect(() => {
     const storedUserId = localStorage.getItem("aiet_user_id");
@@ -109,7 +109,7 @@ function DashboardContent() {
     if (!userId || !sessionToken) return;
     setDeploying(true);
     try {
-      const sub = await createSubscription(userId, strategyKey, "claude-haiku-4-5-20251001", sessionToken);
+      const sub = await createSubscription(userId, strategyKey, modelParam, sessionToken);
       setSubscription(sub);
     } finally {
       setDeploying(false);

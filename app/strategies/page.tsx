@@ -105,7 +105,7 @@ export default function StrategiesPage() {
                         Deploy this strategy to your Alpaca account. The same AI agent that runs in our experiment
                         will execute trades in your account every Friday at 4:30pm ET.
                       </p>
-                      <Link href={`/dashboard?strategy=${cell.key}`} onClick={e => e.stopPropagation()}>
+                      <Link href={`/dashboard?strategy=${cell.strategy}&model=${encodeURIComponent(cell.model)}`} onClick={e => e.stopPropagation()}>
                         <Button size="sm" className="gap-1.5 shrink-0">
                           Deploy <ArrowRight className="w-3 h-3" />
                         </Button>
