@@ -95,7 +95,7 @@ export default function StrategiesPage() {
                       <div>{fmt(cell.mean_return_pct)}</div>
                       <p className="text-xs text-muted-foreground">{cell.trial_count} trial{cell.trial_count !== 1 ? "s" : ""}</p>
                       <Link
-                        href={`/simulate?key=${encodeURIComponent(cell.key)}`}
+                        href={`/simulate?strategy=${cell.strategy}&model=${encodeURIComponent(cell.model)}&has_news=${cell.has_news}&has_ratios=${cell.has_ratios}&return_pct=${cell.mean_return_pct ?? ""}&trial_count=${cell.trial_count}`}
                         onClick={e => e.stopPropagation()}
                         className="block text-xs text-primary hover:underline underline-offset-2 font-medium"
                       >
