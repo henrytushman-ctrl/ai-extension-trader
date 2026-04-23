@@ -78,12 +78,15 @@ def alpaca_authorize(env: str = Query("paper")):
 
 
 @app.get("/auth/alpaca/callback")
-def alpaca_callback(code: str, state: str, db: Session = Depends(get_db)):
+def alpaca_callback(code: str, state: str, env: str = Query("paper"), db: Session = Depends(get_db)):
     """Handle OAuth callback — exchange code for token, create/update user."""
-    # Validate state (CSRF protection)
-    env = _pending_states.pop(state, None)
-    if env is None:
-        raise HTTPException(400, "Invalid or expired OAuth state")
+    # Prefer state from in-memory store (CSRF protection); fall back to client-provided env
+    # if the server restarted between authorize and callback (Render free tier spins down).
+    stored_env = _pending_states.pop(state, None)
+    resolved_env = stored_env if stored_env is not None else env
+    if resolved_env not in ("paper", "live"):
+        raise HTTPException(400, "Invalid env parameter")
+    env = resolved_env
 
     try:
         token_data = exchange_code(code)
