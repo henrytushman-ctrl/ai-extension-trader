@@ -32,6 +32,8 @@ function CallbackContent() {
     fetch(`${BACKEND}/auth/alpaca/callback?code=${code}&state=${state}&env=${env}`)
       .then(r => r.json())
       .then(data => {
+        sessionStorage.removeItem("oauth_state");
+        localStorage.removeItem("aiet_pending_env");
         if (data.user_id) {
           localStorage.setItem("aiet_user_id", String(data.user_id));
           localStorage.setItem("aiet_env", data.environment);
@@ -43,9 +45,11 @@ function CallbackContent() {
           setMessage(data.detail ?? "Unknown error");
         }
       })
-      .catch(e => {
+      .catch(() => {
+        sessionStorage.removeItem("oauth_state");
+        localStorage.removeItem("aiet_pending_env");
         setStatus("error");
-        setMessage(String(e));
+        setMessage("Could not reach the server. Please try again.");
       });
   }, [params, router]);
 

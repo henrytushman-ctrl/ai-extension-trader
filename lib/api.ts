@@ -22,7 +22,7 @@ export type MatrixCell = {
 };
 
 export async function fetchStrategies(): Promise<MatrixCell[]> {
-  const res = await fetch(`${AI_TRADER_API}/analytics/matrix`, { next: { revalidate: 3600 } });
+  const res = await fetch(`${AI_TRADER_API}/analytics/matrix`);
   if (!res.ok) return [];
   return res.json();
 }

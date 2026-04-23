@@ -133,7 +133,7 @@ function DashboardContent() {
     }
   }
 
-  const connected = !!userId && !!account && !!sessionToken;
+  const connected = !!userId && !!sessionToken;
   const meta = subscription ? getStrategyMeta(subscription.strategy) : null;
   const nextExecution = nextFridayET();
 
