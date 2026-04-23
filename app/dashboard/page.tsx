@@ -268,7 +268,7 @@ function DashboardContent() {
                 </Button>
               </div>
 
-              <div className="rounded-md bg-muted/40 border border-border px-4 py-3 text-sm text-muted-foreground space-y-1">
+              <div className="rounded-md bg-card border border-border px-4 py-3 text-sm text-muted-foreground space-y-1">
                 <p className="font-medium text-foreground text-xs">Next execution</p>
                 <p className="text-xs">{nextExecution} · 4:30pm ET</p>
                 <p className="text-xs">The AI will review your {alpacaEnv} portfolio and submit trade decisions to Alpaca.</p>

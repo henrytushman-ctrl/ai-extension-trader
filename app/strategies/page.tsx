@@ -71,8 +71,8 @@ export default function StrategiesPage() {
                   onClick={() => setSelected(isSelected ? null : cell.key)}
                   className={`border rounded-lg p-4 cursor-pointer transition-all ${
                     isSelected
-                      ? "border-primary/50 bg-primary/5"
-                      : "border-border hover:border-border/80 hover:bg-muted/20"
+                      ? "border-primary/60 bg-primary/10"
+                      : "border-border hover:border-border/80 hover:bg-muted/30"
                   }`}
                 >
                   <div className="flex items-start justify-between gap-4">
