@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import {
-  getAlpacaAuthorizeUrl,
+  connectWithApiKey,
   getStrategyMeta,
   getUserAccount,
   getSubscriptions,
@@ -60,6 +60,10 @@ function DashboardContent() {
   const [trades, setTrades] = useState<Trade[]>([]);
   const [connecting, setConnecting] = useState(false);
   const [connectSlow, setConnectSlow] = useState(false);
+  const [apiKey, setApiKey] = useState("");
+  const [apiSecret, setApiSecret] = useState("");
+  const [pendingEnv, setPendingEnv] = useState<"paper" | "live">("paper");
+  const [connectError, setConnectError] = useState("");
   const [deploying, setDeploying] = useState(false);
   const [removing, setRemoving] = useState(false);
 
@@ -84,17 +88,31 @@ function DashboardContent() {
     getTrades(uid, storedToken).then((t: Trade[]) => setTrades(t));
   }, []);
 
-  async function handleConnect(env: "paper" | "live") {
+  async function handleConnect() {
+    if (!apiKey.trim() || !apiSecret.trim()) return;
     setConnecting(true);
     setConnectSlow(false);
-    localStorage.setItem("aiet_pending_env", env);
+    setConnectError("");
     const slowTimer = setTimeout(() => setConnectSlow(true), 4000);
     try {
-      const url = await getAlpacaAuthorizeUrl(env);
+      const data = await connectWithApiKey(apiKey.trim(), apiSecret.trim(), pendingEnv);
       clearTimeout(slowTimer);
-      window.location.href = url;
-    } catch {
+      localStorage.setItem("aiet_user_id", String(data.user_id));
+      localStorage.setItem("aiet_env", data.environment);
+      localStorage.setItem("aiet_session_token", data.session_token);
+      setUserId(data.user_id);
+      setSessionToken(data.session_token);
+      setAlpacaEnv(data.environment as "paper" | "live");
+      setApiKey("");
+      setApiSecret("");
+      getUserAccount(data.user_id, data.session_token).then(acct => { if (acct) setAccount(acct); });
+      getSubscriptions(data.user_id, data.session_token).then((subs: BackendSub[]) => {
+        setSubscription(subs.find(s => s.active) ?? null);
+      });
+    } catch (e) {
       clearTimeout(slowTimer);
+      setConnectError(e instanceof Error ? e.message : "Connection failed");
+    } finally {
       setConnecting(false);
       setConnectSlow(false);
     }
@@ -164,34 +182,61 @@ function DashboardContent() {
           {!connected ? (
             <div className="space-y-4">
               <p className="text-sm text-muted-foreground">
-                We use Alpaca&apos;s OAuth flow — we never see your password or hold your funds. You can revoke access anytime from Alpaca&apos;s settings.
+                Enter your Alpaca API key and secret. We encrypt and store them to execute trades on your behalf.
+                Generate keys at <a href="https://app.alpaca.markets" target="_blank" rel="noopener noreferrer" className="underline underline-offset-2 hover:text-foreground">app.alpaca.markets</a>.
               </p>
-              <div className="flex gap-3">
-                <Button
-                  onClick={() => handleConnect("paper")}
-                  disabled={connecting}
-                  variant="outline"
-                  className="flex-1"
-                >
-                  {connecting ? "Connecting…" : "Connect Paper Account"}
-                </Button>
-                <Button
-                  onClick={() => handleConnect("live")}
-                  disabled={connecting}
-                  className="flex-1"
-                >
-                  {connecting ? "Connecting…" : "Connect Live Account"}
-                </Button>
+
+              {/* Paper / Live toggle */}
+              <div className="flex gap-2">
+                {(["paper", "live"] as const).map(env => (
+                  <button
+                    key={env}
+                    onClick={() => setPendingEnv(env)}
+                    className={`px-3 py-1.5 rounded text-xs font-medium border transition-colors ${
+                      pendingEnv === env
+                        ? "bg-primary text-primary-foreground border-primary"
+                        : "border-border text-muted-foreground hover:text-foreground"
+                    }`}
+                  >
+                    {env === "paper" ? "Paper account" : "Live account"}
+                  </button>
+                ))}
               </div>
+
+              <div className="space-y-2">
+                <input
+                  type="text"
+                  placeholder="API Key (e.g. PKBKRI32BJBH6O7T6C4DL66DC3)"
+                  value={apiKey}
+                  onChange={e => setApiKey(e.target.value)}
+                  className="w-full rounded-md border border-input bg-input px-3 py-2 text-sm font-mono placeholder:text-muted-foreground/50 focus:outline-none focus:ring-1 focus:ring-ring"
+                />
+                <input
+                  type="password"
+                  placeholder="API Secret"
+                  value={apiSecret}
+                  onChange={e => setApiSecret(e.target.value)}
+                  onKeyDown={e => e.key === "Enter" && handleConnect()}
+                  className="w-full rounded-md border border-input bg-input px-3 py-2 text-sm font-mono placeholder:text-muted-foreground/50 focus:outline-none focus:ring-1 focus:ring-ring"
+                />
+              </div>
+
+              <Button
+                onClick={handleConnect}
+                disabled={connecting || !apiKey.trim() || !apiSecret.trim()}
+                className="w-full"
+              >
+                {connecting ? "Verifying…" : `Connect ${pendingEnv === "paper" ? "Paper" : "Live"} Account`}
+              </Button>
+
               {connectSlow && (
-                <p className="text-xs text-muted-foreground">
-                  Server is waking up — this can take up to 30 seconds. Hold tight…
-                </p>
+                <p className="text-xs text-muted-foreground">Server is waking up — this can take up to 30 seconds…</p>
               )}
-              {!connectSlow && (
-                <p className="text-xs text-muted-foreground">
-                  Start with paper trading to test the strategy before using real money.
-                </p>
+              {connectError && (
+                <p className="text-xs text-red-400">{connectError}</p>
+              )}
+              {!connectError && !connectSlow && (
+                <p className="text-xs text-muted-foreground">Start with paper trading to test before using real money.</p>
               )}
             </div>
           ) : (

@@ -56,15 +56,16 @@ def run_user_step(user: User, sub: Subscription, db: Session) -> dict:
     env = user.environment.value
     today = date.today()
 
-    # Decrypt broker token
+    # Decrypt API credentials
     try:
-        access_token = decrypt_token(user.access_token)
+        api_key = decrypt_token(user.access_token)
+        api_secret = decrypt_token(user.refresh_token) if user.refresh_token else ""
     except Exception as e:
-        return {"error": f"Token decryption failed: {e}"}
+        return {"error": f"Credential decryption failed: {e}"}
 
     # 1. Get account state from Alpaca
     try:
-        account = get_account(access_token, env)
+        account = get_account(api_key, api_secret, env)
         cash = float(account.get("cash", 0))
         portfolio_value = float(account.get("portfolio_value", cash))
     except Exception as e:
@@ -72,7 +73,7 @@ def run_user_step(user: User, sub: Subscription, db: Session) -> dict:
 
     # 2. Get current positions from Alpaca
     try:
-        positions = get_positions(access_token, env)
+        positions = get_positions(api_key, api_secret, env)
     except Exception as e:
         return {"error": f"Alpaca positions fetch failed: {e}"}
 
@@ -130,7 +131,7 @@ def run_user_step(user: User, sub: Subscription, db: Session) -> dict:
             continue  # unknown action — skip
 
         try:
-            order = submit_order(access_token, ticker, shares, alpaca_side, env)
+            order = submit_order(api_key, api_secret, ticker, shares, alpaca_side, env)
             order_id = order.get("id")
         except Exception as e:
             print(f"  Order failed {ticker}: {e}")

@@ -6,7 +6,7 @@ import secrets
 
 from backend.db import get_db, engine, Base
 from backend.models import User, Subscription, UserTrade, BrokerEnv
-from backend.alpaca_client import get_authorize_url, exchange_code, get_account
+from backend.alpaca_client import get_account
 from backend.config import settings
 from backend.crypto import encrypt_token, decrypt_token
 
@@ -21,13 +21,6 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
-
-# ---------------------------------------------------------------------------
-# In-memory OAuth state store  {state_token: env}
-# Short-lived (seconds); single-process deployment is fine for MVP.
-# ---------------------------------------------------------------------------
-_pending_states: dict[str, str] = {}
-
 
 # ---------------------------------------------------------------------------
 # Auth dependency — validates X-Session-Token ownership
@@ -63,73 +56,50 @@ def health():
 
 
 # ---------------------------------------------------------------------------
-# OAuth flow
+# API key connect flow
 # ---------------------------------------------------------------------------
 
-@app.get("/auth/alpaca/authorize")
-def alpaca_authorize(env: str = Query("paper")):
-    """Return the Alpaca OAuth URL to redirect the user to."""
-    if env not in ("paper", "live"):
+class ConnectRequest(BaseModel):
+    api_key: str
+    api_secret: str
+    env: str = "paper"
+
+
+@app.post("/auth/alpaca/connect")
+def alpaca_connect(req: ConnectRequest, db: Session = Depends(get_db)):
+    """Verify Alpaca API key + secret, create/update user, return session token."""
+    if req.env not in ("paper", "live"):
         raise HTTPException(400, "env must be 'paper' or 'live'")
-    state = secrets.token_urlsafe(32)
-    _pending_states[state] = env
-    url = get_authorize_url(state=state, env=env)
-    return {"url": url, "state": state}
-
-
-@app.get("/auth/alpaca/callback")
-def alpaca_callback(code: str, state: str, env: str = Query("paper"), db: Session = Depends(get_db)):
-    """Handle OAuth callback — exchange code for token, create/update user."""
-    # Prefer state from in-memory store (CSRF protection); fall back to client-provided env
-    # if the server restarted between authorize and callback (Render free tier spins down).
-    stored_env = _pending_states.pop(state, None)
-    resolved_env = stored_env if stored_env is not None else env
-    if resolved_env not in ("paper", "live"):
-        raise HTTPException(400, "Invalid env parameter")
-    env = resolved_env
 
     try:
-        token_data = exchange_code(code)
-    except Exception as e:
-        raise HTTPException(400, f"Token exchange failed: {e}")
-
-    access_token = token_data["access_token"]
-    refresh_token = token_data.get("refresh_token")
-
-    # Get Alpaca account ID to identify the user
-    try:
-        account = get_account(access_token, env)
+        account = get_account(req.api_key, req.api_secret, req.env)
         alpaca_id = account["id"]
     except Exception as e:
-        raise HTTPException(400, f"Could not fetch Alpaca account: {e}")
+        raise HTTPException(400, f"Invalid credentials: {e}")
 
-    # Encrypt tokens before storing
-    enc_access = encrypt_token(access_token)
-    enc_refresh = encrypt_token(refresh_token) if refresh_token else None
-
-    # Generate a session token for this login
+    enc_key = encrypt_token(req.api_key)
+    enc_secret = encrypt_token(req.api_secret)
     session_token = secrets.token_urlsafe(32)
 
     user = db.query(User).filter_by(alpaca_account_id=alpaca_id).first()
     if user:
-        user.access_token = enc_access
-        if enc_refresh:
-            user.refresh_token = enc_refresh
-        user.environment = BrokerEnv(env)
+        user.access_token = enc_key
+        user.refresh_token = enc_secret
+        user.environment = BrokerEnv(req.env)
         user.session_token = session_token
     else:
         user = User(
             alpaca_account_id=alpaca_id,
-            access_token=enc_access,
-            refresh_token=enc_refresh,
-            environment=BrokerEnv(env),
+            access_token=enc_key,
+            refresh_token=enc_secret,
+            environment=BrokerEnv(req.env),
             session_token=session_token,
         )
         db.add(user)
 
     db.commit()
     db.refresh(user)
-    return {"user_id": user.id, "session_token": session_token, "environment": env}
+    return {"user_id": user.id, "session_token": session_token, "environment": req.env}
 
 
 # ---------------------------------------------------------------------------
@@ -139,8 +109,9 @@ def alpaca_callback(code: str, state: str, env: str = Query("paper"), db: Sessio
 @app.get("/users/{user_id}/account")
 def get_user_account(user: User = Depends(require_user)):
     try:
-        access_token = decrypt_token(user.access_token)
-        account = get_account(access_token, user.environment.value)
+        api_key = decrypt_token(user.access_token)
+        api_secret = decrypt_token(user.refresh_token) if user.refresh_token else ""
+        account = get_account(api_key, api_secret, user.environment.value)
         return {
             "user_id": user.id,
             "environment": user.environment.value,

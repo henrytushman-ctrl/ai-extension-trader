@@ -73,12 +73,19 @@ export function shortModel(model: string) {
 // --- Backend API ---
 const BACKEND = process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:8000";
 
-export async function getAlpacaAuthorizeUrl(env: "paper" | "live"): Promise<string> {
-  const res = await fetch(`${BACKEND}/auth/alpaca/authorize?env=${env}`);
+export async function connectWithApiKey(
+  apiKey: string,
+  apiSecret: string,
+  env: "paper" | "live"
+): Promise<{ user_id: number; session_token: string; environment: string }> {
+  const res = await fetch(`${BACKEND}/auth/alpaca/connect`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ api_key: apiKey, api_secret: apiSecret, env }),
+  });
   const data = await res.json();
-  // Store state for CSRF verification
-  if (typeof window !== "undefined") sessionStorage.setItem("oauth_state", data.state);
-  return data.url;
+  if (!res.ok) throw new Error(data.detail ?? "Connection failed");
+  return data;
 }
 
 function authHeaders(sessionToken: string): Record<string, string> {
