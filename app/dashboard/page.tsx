@@ -77,16 +77,25 @@ function DashboardContent() {
     const storedToken = localStorage.getItem("aiet_session_token") ?? "";
     if (!storedUserId || !storedToken) return;
     const uid = Number(storedUserId);
-    setUserId(uid);
-    setSessionToken(storedToken);
     if (storedEnv) setAlpacaEnv(storedEnv);
 
-    getUserAccount(uid, storedToken).then(acct => { if (acct) setAccount(acct); });
-    getSubscriptions(uid, storedToken).then((subs: BackendSub[]) => {
-      const active = subs.find(s => s.active) ?? null;
-      setSubscription(active);
+    // Validate session before trusting localStorage
+    getUserAccount(uid, storedToken).then(acct => {
+      if (!acct) {
+        // Session is invalid — clear and force reconnect
+        localStorage.removeItem("aiet_user_id");
+        localStorage.removeItem("aiet_env");
+        localStorage.removeItem("aiet_session_token");
+        return;
+      }
+      setUserId(uid);
+      setSessionToken(storedToken);
+      setAccount(acct);
+      getSubscriptions(uid, storedToken).then((subs: BackendSub[]) => {
+        setSubscription(subs.find(s => s.active) ?? null);
+      });
+      getTrades(uid, storedToken).then((t: Trade[]) => setTrades(t));
     });
-    getTrades(uid, storedToken).then((t: Trade[]) => setTrades(t));
   }, []);
 
   async function handleConnect() {
