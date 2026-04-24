@@ -12,6 +12,26 @@ from backend.crypto import encrypt_token, decrypt_token
 
 Base.metadata.create_all(bind=engine)
 
+
+def _run_migrations():
+    """Idempotent ALTER TABLE migrations for columns added after initial deploy."""
+    from sqlalchemy import text
+    migrations = [
+        "ALTER TABLE users ADD COLUMN IF NOT EXISTS refresh_token VARCHAR DEFAULT NULL",
+        "ALTER TABLE subscriptions ADD COLUMN IF NOT EXISTS has_news BOOLEAN DEFAULT TRUE",
+        "ALTER TABLE subscriptions ADD COLUMN IF NOT EXISTS has_ratios BOOLEAN DEFAULT TRUE",
+    ]
+    with engine.connect() as conn:
+        for sql in migrations:
+            try:
+                conn.execute(text(sql))
+                conn.commit()
+            except Exception:
+                conn.rollback()
+
+
+_run_migrations()
+
 app = FastAPI(title="AI Extension Trader API")
 
 app.add_middleware(

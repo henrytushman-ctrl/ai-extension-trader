@@ -65,6 +65,7 @@ function DashboardContent() {
   const [pendingEnv, setPendingEnv] = useState<"paper" | "live">("paper");
   const [connectError, setConnectError] = useState("");
   const [deploying, setDeploying] = useState(false);
+  const [deployError, setDeployError] = useState("");
   const [removing, setRemoving] = useState(false);
 
   const strategyParam = searchParams.get("strategy");
@@ -132,9 +133,18 @@ function DashboardContent() {
   async function handleDeploy(strategyKey: string) {
     if (!userId || !sessionToken) return;
     setDeploying(true);
+    setDeployError("");
     try {
-      const sub = await createSubscription(userId, strategyKey, modelParam, sessionToken);
-      setSubscription(sub);
+      const res = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:8000"}/users/${userId}/subscriptions`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "X-Session-Token": sessionToken },
+        body: JSON.stringify({ strategy: strategyKey, model: modelParam }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.detail ?? "Deploy failed");
+      setSubscription(data);
+    } catch (e) {
+      setDeployError(e instanceof Error ? e.message : "Deploy failed");
     } finally {
       setDeploying(false);
     }
@@ -246,7 +256,7 @@ function DashboardContent() {
                   Connected — {alpacaEnv === "paper" ? "Paper account" : "Live account"}
                 </p>
                 <p className="text-xs text-muted-foreground">
-                  Alpaca · OAuth ·{" "}
+                  Alpaca API key ·{" "}
                   {alpacaEnv === "live"
                     ? <span className="text-amber-400">Real money</span>
                     : <span>Paper money only</span>}
@@ -283,14 +293,17 @@ function DashboardContent() {
                 No active strategy. Browse the marketplace to pick one.
               </p>
               {strategyParam ? (
-                <div className="flex items-center justify-between border border-border rounded-md p-3">
-                  <div>
-                    <p className="text-sm font-medium capitalize">{getStrategyMeta(strategyParam).label}</p>
-                    <p className="text-xs text-muted-foreground">{getStrategyMeta(strategyParam).description}</p>
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between border border-border rounded-md p-3">
+                    <div>
+                      <p className="text-sm font-medium capitalize">{getStrategyMeta(strategyParam).label}</p>
+                      <p className="text-xs text-muted-foreground">{getStrategyMeta(strategyParam).description}</p>
+                    </div>
+                    <Button size="sm" onClick={() => handleDeploy(strategyParam)} disabled={deploying}>
+                      {deploying ? "Deploying…" : "Deploy"}
+                    </Button>
                   </div>
-                  <Button size="sm" onClick={() => handleDeploy(strategyParam)} disabled={deploying}>
-                    {deploying ? "Deploying…" : "Deploy"}
-                  </Button>
+                  {deployError && <p className="text-xs text-red-400">{deployError}</p>}
                 </div>
               ) : (
                 <Link href="/strategies">
