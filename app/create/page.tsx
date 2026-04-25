@@ -5,7 +5,7 @@ import Link from "next/link";
 import { ArrowLeft, Info } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { communityCreateTrial, communityGetDataSources, communityGetModels, getStrategyMeta } from "@/lib/api";
+import { communityCreateTrial, communityGetDataSources, getStrategyMeta } from "@/lib/api";
 
 const STRATEGIES = ["value", "momentum", "growth", "mean_reversion", "sentiment", "macro", "dividend"];
 const UNIVERSES = [
@@ -48,13 +48,11 @@ export default function CreatePage() {
   const [selectedNews, setSelectedNews] = useState<string[]>([]);
   const [useRatios, setUseRatios] = useState(false);
 
-  const [models, setModels] = useState<string[]>([]);
   const [dataSources, setDataSources] = useState<DataSource[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
   useEffect(() => {
-    communityGetModels().then(setModels);
     communityGetDataSources().then(setDataSources);
   }, []);
 
@@ -127,20 +125,14 @@ export default function CreatePage() {
         {/* Model + API key */}
         <div className="space-y-3">
           <h2 className="text-sm font-semibold">AI model</h2>
-          <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
-            {(models.length ? models : ["claude-haiku-4-5-20251001", "gpt-4o-mini", "gemini-2.0-flash"]).map(m => (
-              <button
-                key={m}
-                type="button"
-                onClick={() => setModel(m)}
-                className={`text-left rounded-lg border p-3 transition-all ${
-                  model === m ? "border-primary/60 bg-primary/10" : "border-border hover:border-border/80 hover:bg-muted/30"
-                }`}
-              >
-                <p className="text-xs font-medium font-mono">{m}</p>
-                <p className="text-xs text-muted-foreground mt-0.5">{modelProvider(m)}</p>
-              </button>
-            ))}
+          <div className="space-y-1.5">
+            <input
+              type="text"
+              placeholder="e.g. claude-haiku-4-5-20251001, gpt-4o-mini, gemini-2.0-flash"
+              value={model}
+              onChange={e => setModel(e.target.value)}
+              className="w-full rounded-md border border-input bg-input px-3 py-2 text-sm font-mono placeholder:text-muted-foreground/50 focus:outline-none focus:ring-1 focus:ring-ring"
+            />
           </div>
 
           <div className="space-y-1.5">
