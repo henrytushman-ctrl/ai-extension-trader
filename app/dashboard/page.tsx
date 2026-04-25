@@ -26,6 +26,9 @@ type BackendSub = {
   model: string;
   active: boolean;
   created_at: string;
+  stock_universe?: string;
+  aggression?: string;
+  is_custom?: boolean;
 };
 
 type Trade = {
@@ -297,9 +300,9 @@ function DashboardContent() {
         </CardHeader>
         <CardContent>
           {!subscription ? (
-            <div className="space-y-3">
+            <div className="space-y-4">
               <p className="text-sm text-muted-foreground">
-                No active strategy. Browse the marketplace to pick one.
+                Pick a proven strategy from the marketplace, or build your own with full control over every parameter.
               </p>
               {strategyParam ? (
                 <div className="space-y-2">
@@ -315,25 +318,42 @@ function DashboardContent() {
                   {deployError && <p className="text-xs text-red-400">{deployError}</p>}
                 </div>
               ) : (
-                <Link href="/strategies">
-                  <Button variant="outline" size="sm">Browse strategies →</Button>
-                </Link>
+                <div className="grid sm:grid-cols-2 gap-2">
+                  <Link href="/strategies">
+                    <Button variant="outline" size="sm" className="w-full">
+                      Browse proven strategies →
+                    </Button>
+                  </Link>
+                  <Link href="/dashboard/custom">
+                    <Button size="sm" className="w-full">
+                      Build custom strategy →
+                    </Button>
+                  </Link>
+                </div>
               )}
             </div>
           ) : (
             <div className="space-y-4">
               <div className="flex items-start justify-between gap-4">
                 <div className="space-y-1">
-                  <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-2 flex-wrap">
                     <span className="font-medium text-sm">{meta?.label}</span>
                     <Badge variant={subscription.active ? "default" : "secondary"} className="text-xs">
                       {subscription.active ? "Active" : "Paused"}
                     </Badge>
+                    {subscription.is_custom && (
+                      <Badge variant="secondary" className="text-xs">Custom</Badge>
+                    )}
                   </div>
                   <p className="text-xs text-muted-foreground">{meta?.description}</p>
                   <p className="text-xs text-muted-foreground">
                     Model: {shortModel(subscription.model)} · Executes Fridays 4:30pm ET
                   </p>
+                  {subscription.is_custom && (
+                    <p className="text-xs text-muted-foreground">
+                      Universe: {subscription.stock_universe} · Risk: {subscription.aggression}
+                    </p>
+                  )}
                 </div>
                 <Button
                   size="sm"
@@ -354,9 +374,12 @@ function DashboardContent() {
                 <p className="text-xs">The AI will review your {alpacaEnv} portfolio and submit trade decisions to Alpaca.</p>
               </div>
 
-              <div className="flex gap-2">
-                <Link href="/strategies" className="flex-1">
-                  <Button variant="outline" size="sm" className="w-full">Switch strategy</Button>
+              <div className="flex gap-2 flex-wrap">
+                <Link href="/strategies" className="flex-1 min-w-[140px]">
+                  <Button variant="outline" size="sm" className="w-full">Browse strategies</Button>
+                </Link>
+                <Link href="/dashboard/custom" className="flex-1 min-w-[140px]">
+                  <Button variant="outline" size="sm" className="w-full">Build custom</Button>
                 </Link>
                 <Button
                   variant="ghost"

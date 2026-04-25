@@ -20,6 +20,10 @@ def _run_migrations():
         "ALTER TABLE users ADD COLUMN IF NOT EXISTS refresh_token VARCHAR DEFAULT NULL",
         "ALTER TABLE subscriptions ADD COLUMN IF NOT EXISTS has_news BOOLEAN DEFAULT TRUE",
         "ALTER TABLE subscriptions ADD COLUMN IF NOT EXISTS has_ratios BOOLEAN DEFAULT TRUE",
+        "ALTER TABLE subscriptions ADD COLUMN IF NOT EXISTS stock_universe VARCHAR DEFAULT 'sp500'",
+        "ALTER TABLE subscriptions ADD COLUMN IF NOT EXISTS aggression VARCHAR DEFAULT 'moderate'",
+        "ALTER TABLE subscriptions ADD COLUMN IF NOT EXISTS is_custom BOOLEAN DEFAULT FALSE",
+        "ALTER TABLE subscriptions ADD COLUMN IF NOT EXISTS ai_api_key_encrypted TEXT DEFAULT NULL",
     ]
     with engine.connect() as conn:
         for sql in migrations:
@@ -152,6 +156,10 @@ class SubscribeRequest(BaseModel):
     model: str = "claude-haiku-4-5-20251001"
     has_news: bool = True
     has_ratios: bool = True
+    stock_universe: str = "sp500"
+    aggression: str = "moderate"
+    is_custom: bool = False
+    ai_api_key: str | None = None  # user-provided AI provider key (only for custom strategies)
 
 
 @app.get("/users/{user_id}/subscriptions")
@@ -164,6 +172,9 @@ def list_subscriptions(user: User = Depends(require_user), db: Session = Depends
             "model": s.model,
             "has_news": s.has_news,
             "has_ratios": s.has_ratios,
+            "stock_universe": s.stock_universe,
+            "aggression": s.aggression,
+            "is_custom": s.is_custom,
             "active": s.active,
             "created_at": s.created_at.isoformat(),
         }
@@ -173,6 +184,13 @@ def list_subscriptions(user: User = Depends(require_user), db: Session = Depends
 
 @app.post("/users/{user_id}/subscriptions")
 def create_subscription(req: SubscribeRequest, user: User = Depends(require_user), db: Session = Depends(get_db)):
+    if req.stock_universe not in ("sp500", "tech", "small_cap"):
+        raise HTTPException(400, "stock_universe must be sp500, tech, or small_cap")
+    if req.aggression not in ("conservative", "moderate", "aggressive", "speculative"):
+        raise HTTPException(400, "aggression must be conservative, moderate, aggressive, or speculative")
+    if req.is_custom and not req.ai_api_key:
+        raise HTTPException(400, "Custom strategies require your own AI API key")
+
     # Deactivate existing subscriptions (one active at a time for MVP)
     db.query(Subscription).filter_by(user_id=user.id, active=True).update({"active": False})
     sub = Subscription(
@@ -181,12 +199,24 @@ def create_subscription(req: SubscribeRequest, user: User = Depends(require_user
         model=req.model,
         has_news=req.has_news,
         has_ratios=req.has_ratios,
+        stock_universe=req.stock_universe,
+        aggression=req.aggression,
+        is_custom=req.is_custom,
+        ai_api_key_encrypted=encrypt_token(req.ai_api_key) if req.ai_api_key else None,
         active=True,
     )
     db.add(sub)
     db.commit()
     db.refresh(sub)
-    return {"id": sub.id, "strategy": sub.strategy, "model": sub.model, "active": sub.active}
+    return {
+        "id": sub.id,
+        "strategy": sub.strategy,
+        "model": sub.model,
+        "stock_universe": sub.stock_universe,
+        "aggression": sub.aggression,
+        "is_custom": sub.is_custom,
+        "active": sub.active,
+    }
 
 
 @app.patch("/users/{user_id}/subscriptions/{sub_id}")

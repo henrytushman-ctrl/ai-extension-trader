@@ -1,5 +1,5 @@
 from datetime import datetime
-from sqlalchemy import String, Boolean, DateTime, Float, Text, ForeignKey, Enum as SAEnum
+from sqlalchemy import String, Boolean, DateTime, Float, Text, JSON, ForeignKey, Enum as SAEnum
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 import enum
 from backend.db import Base
@@ -35,6 +35,10 @@ class Subscription(Base):
     model: Mapped[str] = mapped_column(String)          # e.g. "claude-haiku-4-5-20251001"
     has_news: Mapped[bool] = mapped_column(Boolean, default=True)
     has_ratios: Mapped[bool] = mapped_column(Boolean, default=True)
+    stock_universe: Mapped[str] = mapped_column(String, default="sp500")  # sp500 / tech / small_cap
+    aggression: Mapped[str] = mapped_column(String, default="moderate")   # conservative / moderate / aggressive / speculative
+    is_custom: Mapped[bool] = mapped_column(Boolean, default=False)
+    ai_api_key_encrypted: Mapped[str | None] = mapped_column(Text, nullable=True)  # user-provided AI provider key
     active: Mapped[bool] = mapped_column(Boolean, default=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
 

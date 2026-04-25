@@ -134,6 +134,31 @@ export async function createSubscription(userId: number, strategy: string, model
   return res.json();
 }
 
+export type CustomSubscriptionConfig = {
+  strategy: string;
+  model: string;
+  ai_api_key: string;
+  stock_universe: "sp500" | "tech" | "small_cap";
+  aggression: "conservative" | "moderate" | "aggressive" | "speculative";
+  has_news: boolean;
+  has_ratios: boolean;
+};
+
+export async function createCustomSubscription(
+  userId: number,
+  sessionToken: string,
+  config: CustomSubscriptionConfig
+) {
+  const res = await fetch(`${BACKEND}/users/${userId}/subscriptions`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...authHeaders(sessionToken) },
+    body: JSON.stringify({ ...config, is_custom: true }),
+  });
+  const data = await res.json();
+  if (!res.ok) throw new Error(data.detail ?? "Failed to create custom strategy");
+  return data;
+}
+
 export async function pauseSubscription(userId: number, subId: number, active: boolean, sessionToken: string) {
   const res = await fetch(`${BACKEND}/users/${userId}/subscriptions/${subId}?active=${active}`, {
     method: "PATCH",

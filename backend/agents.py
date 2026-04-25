@@ -168,12 +168,12 @@ def _build_context(
     return "\n".join(lines)
 
 
-def _call_claude(system: str, user: str) -> dict:
-    import anthropic, json
+def _call_claude(model: str, system: str, user: str, api_key: str | None = None) -> dict:
+    import anthropic
     from backend.config import settings
-    client = anthropic.Anthropic(api_key=settings.anthropic_api_key)
+    client = anthropic.Anthropic(api_key=api_key or settings.anthropic_api_key)
     resp = client.messages.create(
-        model="claude-haiku-4-5-20251001",
+        model=model,
         max_tokens=1024,
         system=system,
         tools=[{"name": "submit_trades", "description": "Submit trading decisions.", "input_schema": TRADE_TOOL_SCHEMA}],
@@ -186,11 +186,11 @@ def _call_claude(system: str, user: str) -> dict:
     return {"trades": [], "summary": "No decision."}
 
 
-def _call_openai(model: str, system: str, user: str) -> dict:
+def _call_openai(model: str, system: str, user: str, api_key: str | None = None) -> dict:
     import json
     from openai import OpenAI
     from backend.config import settings
-    client = OpenAI(api_key=settings.openai_api_key)
+    client = OpenAI(api_key=api_key or settings.openai_api_key)
     resp = client.chat.completions.create(
         model=model, temperature=0,
         tools=[{"type": "function", "function": {"name": "submit_trades", "description": "Submit trading decisions.", "parameters": TRADE_TOOL_SCHEMA}}],
@@ -204,16 +204,16 @@ def _call_openai(model: str, system: str, user: str) -> dict:
     return {"trades": [], "summary": "No decision."}
 
 
-def _call_gemini(system: str, user: str) -> dict:
+def _call_gemini(model: str, system: str, user: str, api_key: str | None = None) -> dict:
     import json
     from openai import OpenAI
     from backend.config import settings
     client = OpenAI(
-        api_key=settings.google_api_key,
+        api_key=api_key or settings.google_api_key,
         base_url="https://generativelanguage.googleapis.com/v1beta/openai/",
     )
     resp = client.chat.completions.create(
-        model="gemini-2.0-flash", temperature=0,
+        model=model, temperature=0,
         tools=[{"type": "function", "function": {"name": "submit_trades", "description": "Submit trading decisions.", "parameters": TRADE_TOOL_SCHEMA}}],
         tool_choice={"type": "function", "function": {"name": "submit_trades"}},
         messages=[{"role": "system", "content": system}, {"role": "user", "content": user}],
@@ -235,13 +235,14 @@ def run_agent(
     on_date: date,
     universe: list[str],
     aggression: str = "moderate",
+    api_key: str | None = None,
 ) -> dict:
     system_prompt = STRATEGIES.get(strategy, STRATEGIES["value"])
     user_message = _build_context(portfolio, prices, ratios, news, on_date, universe, aggression)
 
-    if model.startswith("gpt"):
-        return _call_openai(model, system_prompt, user_message)
+    if model.startswith("gpt") or model.startswith("o1") or model.startswith("o3"):
+        return _call_openai(model, system_prompt, user_message, api_key=api_key)
     elif model.startswith("gemini"):
-        return _call_gemini(system_prompt, user_message)
+        return _call_gemini(model, system_prompt, user_message, api_key=api_key)
     else:
-        return _call_claude(system_prompt, user_message)
+        return _call_claude(model, system_prompt, user_message, api_key=api_key)

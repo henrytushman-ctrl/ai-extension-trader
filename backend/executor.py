@@ -22,6 +22,23 @@ SP500_SAMPLE = [
     "RTX", "ORCL", "QCOM", "AMGN", "UPS", "HON", "IBM", "CAT", "SPGI", "GS",
 ]
 
+TECH_TICKERS = [
+    "AAPL", "MSFT", "NVDA", "GOOGL", "META", "AMZN", "TSLA",
+    "AVGO", "AMD", "ORCL", "CRM", "ADBE", "NFLX", "INTC", "QCOM",
+    "TXN", "NOW", "INTU", "MU", "AMAT",
+]
+
+SMALL_CAP_TICKERS = [
+    "SMCI", "AXON", "CHRD", "GTLB", "CELH", "IONS", "ROIV",
+    "NVST", "CRUS", "LNTH", "KRYS", "ACLS", "MGNI", "POWI", "TRUP",
+]
+
+UNIVERSES = {
+    "sp500": SP500_SAMPLE,
+    "tech": TECH_TICKERS,
+    "small_cap": SMALL_CAP_TICKERS,
+}
+
 
 def _fetch_prices(tickers: list[str]) -> dict[str, float]:
     prices = {}
@@ -88,14 +105,22 @@ def run_user_step(user: User, sub: Subscription, db: Session) -> dict:
     portfolio = {"cash": cash, "holdings": holdings}
 
     # 3. Fetch market data
-    universe = SP500_SAMPLE
+    universe = UNIVERSES.get(sub.stock_universe, SP500_SAMPLE)
     prices = _fetch_prices(universe)
     if not prices:
         return {"error": "Could not fetch prices"}
 
     ratios = _fetch_ratios(list(holdings.keys()) + universe[:20]) if sub.has_ratios else {}
 
-    # 4. Run AI agent
+    # 4. Resolve user-provided AI key (custom strategies only)
+    user_ai_key: str | None = None
+    if sub.is_custom and sub.ai_api_key_encrypted:
+        try:
+            user_ai_key = decrypt_token(sub.ai_api_key_encrypted)
+        except Exception as e:
+            return {"error": f"AI API key decryption failed: {e}"}
+
+    # 5. Run AI agent
     result = run_agent(
         strategy=sub.strategy,
         model=sub.model,
@@ -105,13 +130,14 @@ def run_user_step(user: User, sub: Subscription, db: Session) -> dict:
         news=[],       # TODO: wire news providers
         on_date=today,
         universe=universe,
-        aggression="moderate",
+        aggression=sub.aggression,
+        api_key=user_ai_key,
     )
 
-    # 5. Apply hard position limits before executing
+    # 6. Apply hard position limits before executing
     trades = _apply_limits(result.get("trades", []), portfolio_value, prices, holdings)
 
-    # 6. Execute trades on Alpaca
+    # 7. Execute trades on Alpaca
     executed = []
     for decision in trades:
         ticker = decision["ticker"]
