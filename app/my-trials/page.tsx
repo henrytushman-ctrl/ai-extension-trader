@@ -1,7 +1,6 @@
 "use client";
 import { useState, useEffect } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
 import { Plus, TrendingUp, TrendingDown, ArrowRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -19,15 +18,14 @@ function fmt(val: number | null) {
 }
 
 export default function MyTrialsPage() {
-  const router = useRouter();
   const [trials, setTrials] = useState<CommunityTrial[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const token = localStorage.getItem("ct_token");
-    if (!token) { router.push("/login"); return; }
+    // TODO: replace with Clerk auth token
+    const token = localStorage.getItem("ct_token") || "";
     communityGetTrials(token).then(t => { setTrials(t); setLoading(false); });
-  }, [router]);
+  }, []);
 
   return (
     <main className="flex-1">

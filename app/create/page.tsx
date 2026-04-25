@@ -39,8 +39,6 @@ function modelProviderKey(model: string) {
 
 export default function CreatePage() {
   const router = useRouter();
-  const [token, setToken] = useState<string | null>(null);
-
   const [strategy, setStrategy] = useState("momentum");
   const [model, setModel] = useState("claude-haiku-4-5-20251001");
   const [aiApiKey, setAiApiKey] = useState("");
@@ -56,12 +54,9 @@ export default function CreatePage() {
   const [error, setError] = useState("");
 
   useEffect(() => {
-    const t = localStorage.getItem("ct_token");
-    if (!t) { router.push("/login"); return; }
-    setToken(t);
     communityGetModels().then(setModels);
     communityGetDataSources().then(setDataSources);
-  }, [router]);
+  }, []);
 
   function toggleNews(id: string) {
     setSelectedNews(prev => prev.includes(id) ? prev.filter(n => n !== id) : [...prev, id]);
@@ -69,12 +64,11 @@ export default function CreatePage() {
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    if (!token) return;
     if (!aiApiKey.trim()) { setError("API key is required."); return; }
     setLoading(true);
     setError("");
     try {
-      const trial = await communityCreateTrial(token, {
+      const trial = await communityCreateTrial("", {
         strategy,
         model,
         ai_api_key: aiApiKey.trim(),

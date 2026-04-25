@@ -1,10 +1,10 @@
 "use client";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { Menu, X } from "lucide-react";
 
-const PUBLIC_PAGES = [
+const PAGES = [
   { label: "Home", href: "/" },
   { label: "Strategies", href: "/strategies" },
   { label: "Dashboard", href: "/dashboard" },
@@ -15,16 +15,6 @@ const PUBLIC_PAGES = [
 export default function Nav() {
   const pathname = usePathname();
   const [open, setOpen] = useState(false);
-  const [loggedIn, setLoggedIn] = useState(false);
-
-  useEffect(() => {
-    setLoggedIn(!!localStorage.getItem("ct_token"));
-  }, [pathname]);
-
-  const PAGES = [
-    ...PUBLIC_PAGES,
-    ...(loggedIn ? [{ label: "My trials", href: "/my-trials" }] : [{ label: "Sign in", href: "/login" }]),
-  ];
 
   return (
     <nav className="border-b border-border bg-background px-6 py-3">
