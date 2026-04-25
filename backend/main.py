@@ -5,7 +5,7 @@ from pydantic import BaseModel
 import secrets
 
 from backend.db import get_db, engine, Base
-from backend.models import User, Subscription, UserTrade, BrokerEnv
+from backend.models import User, Subscription, UserTrade, BrokerEnv, CommunityTrial
 from backend.alpaca_client import get_account
 from backend.config import settings
 from backend.crypto import encrypt_token, decrypt_token
@@ -285,3 +285,119 @@ def run_all(_: None = Depends(require_admin), db: Session = Depends(get_db)):
             results.append(result)
 
     return {"ran": len(results), "results": results}
+
+
+# ---------------------------------------------------------------------------
+# Community trials (no auth for now — Clerk integration coming)
+# ---------------------------------------------------------------------------
+
+class CommunityTrialRequest(BaseModel):
+    strategy: str
+    model: str
+    ai_api_key: str
+    stock_universe: str = "sp500"
+    aggression: str = "moderate"
+    data_sources: dict | None = None
+    is_public: bool = True
+    name: str | None = None
+
+
+@app.post("/community/trials")
+def create_community_trial(req: CommunityTrialRequest, db: Session = Depends(get_db)):
+    import json
+    trial = CommunityTrial(
+        strategy=req.strategy,
+        model=req.model,
+        ai_api_key_encrypted=encrypt_token(req.ai_api_key),
+        stock_universe=req.stock_universe,
+        aggression=req.aggression,
+        data_sources=json.dumps(req.data_sources) if req.data_sources else None,
+        is_public=req.is_public,
+        name=req.name or f"{req.strategy} — {req.model}",
+        starting_capital=100000.0,
+    )
+    db.add(trial)
+    db.commit()
+    db.refresh(trial)
+    return {
+        "id": trial.id,
+        "name": trial.name,
+        "strategy": trial.strategy,
+        "model": trial.model,
+        "stock_universe": trial.stock_universe,
+        "aggression": trial.aggression,
+        "data_sources": req.data_sources,
+        "starting_capital": trial.starting_capital,
+        "status": trial.status,
+        "is_public": trial.is_public,
+        "created_at": trial.created_at.isoformat(),
+        "last_ai_run_date": None,
+        "current_value": None,
+        "return_pct": None,
+    }
+
+
+@app.get("/community/trials")
+def list_community_trials(db: Session = Depends(get_db)):
+    trials = db.query(CommunityTrial).order_by(CommunityTrial.created_at.desc()).all()
+    import json
+    return [
+        {
+            "id": t.id,
+            "name": t.name,
+            "strategy": t.strategy,
+            "model": t.model,
+            "stock_universe": t.stock_universe,
+            "aggression": t.aggression,
+            "data_sources": json.loads(t.data_sources) if t.data_sources else {},
+            "starting_capital": t.starting_capital,
+            "status": t.status,
+            "is_public": t.is_public,
+            "created_at": t.created_at.isoformat(),
+            "last_ai_run_date": t.last_ai_run_date.isoformat() if t.last_ai_run_date else None,
+            "current_value": t.current_value,
+            "return_pct": t.return_pct,
+        }
+        for t in trials
+    ]
+
+
+@app.get("/community/trials/{trial_id}")
+def get_community_trial(trial_id: int, db: Session = Depends(get_db)):
+    import json
+    trial = db.get(CommunityTrial, trial_id)
+    if not trial:
+        raise HTTPException(404, "Trial not found")
+    return {
+        "id": trial.id,
+        "name": trial.name,
+        "strategy": trial.strategy,
+        "model": trial.model,
+        "stock_universe": trial.stock_universe,
+        "aggression": trial.aggression,
+        "data_sources": json.loads(trial.data_sources) if trial.data_sources else {},
+        "starting_capital": trial.starting_capital,
+        "status": trial.status,
+        "is_public": trial.is_public,
+        "created_at": trial.created_at.isoformat(),
+        "last_ai_run_date": trial.last_ai_run_date.isoformat() if trial.last_ai_run_date else None,
+        "current_value": trial.current_value,
+        "return_pct": trial.return_pct,
+    }
+
+
+@app.delete("/community/trials/{trial_id}")
+def delete_community_trial(trial_id: int, db: Session = Depends(get_db)):
+    trial = db.get(CommunityTrial, trial_id)
+    if not trial:
+        raise HTTPException(404, "Trial not found")
+    db.delete(trial)
+    db.commit()
+    return {"deleted": trial_id}
+
+
+@app.get("/community/data-sources")
+def list_data_sources():
+    return [
+        {"id": "ratios", "label": "Financial ratios", "description": "P/E, P/B, D/E ratios via FMP. Helps value and growth strategies.", "cost": "Free tier"},
+    ]

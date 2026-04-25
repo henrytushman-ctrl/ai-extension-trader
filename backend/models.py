@@ -60,3 +60,23 @@ class UserTrade(Base):
     alpaca_order_id: Mapped[str | None] = mapped_column(String, nullable=True)
 
     user: Mapped["User"] = relationship(back_populates="trades")
+
+
+class CommunityTrial(Base):
+    __tablename__ = "community_trials"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    strategy: Mapped[str] = mapped_column(String)
+    model: Mapped[str] = mapped_column(String)
+    ai_api_key_encrypted: Mapped[str] = mapped_column(Text)
+    stock_universe: Mapped[str] = mapped_column(String, default="sp500")
+    aggression: Mapped[str] = mapped_column(String, default="moderate")
+    data_sources: Mapped[str | None] = mapped_column(Text, nullable=True)  # JSON string
+    is_public: Mapped[bool] = mapped_column(Boolean, default=True)
+    name: Mapped[str | None] = mapped_column(String, nullable=True)
+    status: Mapped[str] = mapped_column(String, default="active")
+    starting_capital: Mapped[float] = mapped_column(Float, default=100000.0)
+    current_value: Mapped[float | None] = mapped_column(Float, nullable=True)
+    return_pct: Mapped[float | None] = mapped_column(Float, nullable=True)
+    last_ai_run_date: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)

@@ -26,24 +26,20 @@ export default function TrialDetailPage() {
   const [deleting, setDeleting] = useState(false);
 
   useEffect(() => {
-    const token = localStorage.getItem("ct_token");
-    if (!token) { router.push("/login"); return; }
     Promise.all([
-      communityGetTrial(token, trialId),
-      communityGetTrades(token, trialId),
+      communityGetTrial(trialId),
+      communityGetTrades(trialId),
     ]).then(([t, tr]) => {
       setTrial(t);
       setTrades(tr);
       setLoading(false);
     });
-  }, [router, trialId]);
+  }, [trialId]);
 
   async function handleDelete() {
     if (!confirm("Stop and delete this trial? This cannot be undone.")) return;
-    const token = localStorage.getItem("ct_token");
-    if (!token) return;
     setDeleting(true);
-    await communityDeleteTrial(token, trialId);
+    await communityDeleteTrial(trialId);
     router.push("/my-trials");
   }
 

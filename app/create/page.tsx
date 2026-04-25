@@ -66,7 +66,7 @@ export default function CreatePage() {
     setLoading(true);
     setError("");
     try {
-      const trial = await communityCreateTrial("", {
+      const trial = await communityCreateTrial({
         strategy,
         model,
         ai_api_key: aiApiKey.trim(),

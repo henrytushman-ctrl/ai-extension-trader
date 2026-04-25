@@ -22,9 +22,7 @@ export default function MyTrialsPage() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    // TODO: replace with Clerk auth token
-    const token = localStorage.getItem("ct_token") || "";
-    communityGetTrials(token).then(t => { setTrials(t); setLoading(false); });
+    communityGetTrials().then(t => { setTrials(t); setLoading(false); });
   }, []);
 
   return (

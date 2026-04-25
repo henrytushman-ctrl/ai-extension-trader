@@ -184,15 +184,6 @@ export async function getTrades(userId: number, sessionToken: string) {
 }
 
 // --- Community Trial Platform ---
-const AI_TRADER_BACKEND = process.env.NEXT_PUBLIC_AI_TRADER_API || "https://ai-trader-jylt.onrender.com";
-
-function communityHeaders(token: string): Record<string, string> {
-  return { "X-Community-Token": token };
-}
-
-function communityAuthHeaders(token: string): Record<string, string> {
-  return { "Content-Type": "application/json", "X-Community-Token": token };
-}
 
 export type CommunityTrial = {
   id: number;
@@ -222,54 +213,25 @@ export type CommunityTrade = {
   portfolio_value_after: number;
 };
 
-export async function communityRegister(email: string, password: string): Promise<{ user_id: number; token: string }> {
-  const res = await fetch(`${AI_TRADER_BACKEND}/community/register`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ email, password }),
-  });
-  const data = await res.json();
-  if (!res.ok) throw new Error(data.detail ?? "Registration failed");
-  return data;
-}
-
-export async function communityLogin(email: string, password: string): Promise<{ user_id: number; token: string }> {
-  const res = await fetch(`${AI_TRADER_BACKEND}/community/login`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ email, password }),
-  });
-  const data = await res.json();
-  if (!res.ok) throw new Error(data.detail ?? "Login failed");
-  return data;
-}
-
-export async function communityGetTrials(token: string): Promise<CommunityTrial[]> {
-  const res = await fetch(`${AI_TRADER_BACKEND}/community/trials`, {
-    headers: communityHeaders(token),
-  });
+export async function communityGetTrials(): Promise<CommunityTrial[]> {
+  const res = await fetch(`${BACKEND}/community/trials`);
   if (!res.ok) return [];
   return res.json();
 }
 
-export async function communityGetTrial(token: string, trialId: number): Promise<CommunityTrial | null> {
-  const res = await fetch(`${AI_TRADER_BACKEND}/community/trials/${trialId}`, {
-    headers: communityHeaders(token),
-  });
+export async function communityGetTrial(trialId: number): Promise<CommunityTrial | null> {
+  const res = await fetch(`${BACKEND}/community/trials/${trialId}`);
   if (!res.ok) return null;
   return res.json();
 }
 
-export async function communityGetTrades(token: string, trialId: number): Promise<CommunityTrade[]> {
-  const res = await fetch(`${AI_TRADER_BACKEND}/community/trials/${trialId}/trades`, {
-    headers: communityHeaders(token),
-  });
+export async function communityGetTrades(trialId: number): Promise<CommunityTrade[]> {
+  const res = await fetch(`${BACKEND}/community/trials/${trialId}/trades`);
   if (!res.ok) return [];
   return res.json();
 }
 
 export async function communityCreateTrial(
-  token: string,
   payload: {
     strategy: string;
     model: string;
@@ -281,9 +243,9 @@ export async function communityCreateTrial(
     name?: string;
   }
 ): Promise<CommunityTrial> {
-  const res = await fetch(`${AI_TRADER_BACKEND}/community/trials`, {
+  const res = await fetch(`${BACKEND}/community/trials`, {
     method: "POST",
-    headers: communityAuthHeaders(token),
+    headers: { "Content-Type": "application/json" },
     body: JSON.stringify(payload),
   });
   const data = await res.json();
@@ -291,22 +253,15 @@ export async function communityCreateTrial(
   return data;
 }
 
-export async function communityDeleteTrial(token: string, trialId: number): Promise<boolean> {
-  const res = await fetch(`${AI_TRADER_BACKEND}/community/trials/${trialId}`, {
+export async function communityDeleteTrial(trialId: number): Promise<boolean> {
+  const res = await fetch(`${BACKEND}/community/trials/${trialId}`, {
     method: "DELETE",
-    headers: communityHeaders(token),
   });
   return res.ok;
 }
 
 export async function communityGetDataSources() {
-  const res = await fetch(`${AI_TRADER_BACKEND}/community/data-sources`);
-  if (!res.ok) return [];
-  return res.json();
-}
-
-export async function communityGetModels(): Promise<string[]> {
-  const res = await fetch(`${AI_TRADER_BACKEND}/community/models`);
+  const res = await fetch(`${BACKEND}/community/data-sources`);
   if (!res.ok) return [];
   return res.json();
 }
